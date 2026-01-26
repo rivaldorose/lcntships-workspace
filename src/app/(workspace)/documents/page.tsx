@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import {
   Search,
   Upload,
@@ -519,14 +520,15 @@ export default function DocumentsPage() {
           <p className="text-gray-500 mt-1">Manage and organize all your files and documents.</p>
         </div>
         <div className="flex gap-3">
-          <Button
-            variant="outline"
-            className="rounded-xl h-11 px-5"
-            onClick={() => setShowUploadProgress(true)}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Upload
-          </Button>
+          <Link href="/upload">
+            <Button
+              variant="outline"
+              className="rounded-xl h-11 px-5"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Upload
+            </Button>
+          </Link>
           <Button
             variant="outline"
             className="rounded-xl h-11 px-5"
