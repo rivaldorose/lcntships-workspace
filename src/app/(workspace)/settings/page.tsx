@@ -4,13 +4,10 @@ import { useState } from 'react'
 import {
   Briefcase,
   User,
-  Users,
   Bell,
-  CreditCard,
   Puzzle,
   Settings,
   Palette,
-  Plus,
   MoreHorizontal,
   Check,
   ArrowRight,
@@ -18,30 +15,31 @@ import {
   Smartphone,
   Image,
   Trash2,
+  Key,
+  Shield,
+  Globe,
+  Lock,
+  Eye,
+  EyeOff,
+  Copy,
+  RefreshCw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
-// Navigation items
+// Navigation items (removed team members and payments)
 const navItems = [
   { id: 'business-profile', label: 'Business Profile', icon: Briefcase },
   { id: 'my-account', label: 'My Account', icon: User },
-  { id: 'team-members', label: 'Team Members', icon: Users },
+  { id: 'authentication', label: 'Authentication', icon: Key },
   { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'payments', label: 'Payments & Payouts', icon: CreditCard },
   { id: 'integrations', label: 'Integrations', icon: Puzzle },
   { id: 'platform-settings', label: 'Platform Settings', icon: Settings },
   { id: 'branding', label: 'Branding', icon: Palette },
 ]
 
 // Mock data
-const teamMembers = [
-  { id: '1', name: 'Rivaldo Rose', email: 'rivaldo@lcntships.nl', role: 'Admin', initials: 'RR', color: 'bg-indigo-100 text-indigo-600' },
-  { id: '2', name: 'Anna de Vries', email: 'anna@lcntships.nl', role: 'Manager', initials: 'AV', color: 'bg-pink-100 text-pink-600' },
-  { id: '3', name: 'Mark Jansen', email: 'mark@lcntships.nl', role: 'Support', initials: 'MJ', color: 'bg-blue-100 text-blue-600' },
-]
-
 const integrations = [
   { id: '1', name: 'Google Calendar', description: 'Sync bookings directly to your calendar to avoid double bookings.', connected: true, logo: 'gcal' },
   { id: '2', name: 'Mailchimp', description: 'Automatically add new customers to your newsletter audiences.', connected: false, logo: 'mailchimp' },
@@ -92,6 +90,12 @@ function SmallToggle({ checked, onChange }: { checked: boolean; onChange: (check
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState('business-profile')
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
+  const [showApiKey, setShowApiKey] = useState(false)
+
+  // Auth settings states
+  const [emailLoginEnabled, setEmailLoginEnabled] = useState(true)
+  const [magicLinkEnabled, setMagicLinkEnabled] = useState(true)
+  const [googleAuthEnabled, setGoogleAuthEnabled] = useState(false)
 
   // Notification states
   const [emailNotifications, setEmailNotifications] = useState({
@@ -112,6 +116,9 @@ export default function SettingsPage() {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
   }
+
+  // Mock API key (would come from Supabase in production)
+  const mockApiKey = 'sk_live_lcnt_1234567890abcdefghijklmnop'
 
   return (
     <div className="flex min-h-screen">
@@ -279,56 +286,161 @@ export default function SettingsPage() {
             </div>
           </section>
 
-          {/* Team Members Section */}
-          <section id="team-members" className="scroll-mt-8">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-gray-900">Team Members</h2>
-              <Button className="rounded-xl">
-                <Plus className="h-4 w-4 mr-2" />
-                Invite Member
-              </Button>
+          {/* Authentication Section - NEW */}
+          <section id="authentication" className="scroll-mt-8">
+            <div className="mb-4">
+              <h2 className="text-2xl font-bold text-gray-900">Authentication</h2>
+              <p className="text-gray-500 text-sm">Configure how users can sign in to your platform.</p>
             </div>
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-gray-100 bg-gray-50/50">
-                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Member</th>
-                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</th>
-                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {teamMembers.map((member) => (
-                      <tr key={member.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className={cn('w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold', member.color)}>
-                              {member.initials}
-                            </div>
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">{member.name}</div>
-                              <div className="text-xs text-gray-500">{member.email}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">{member.role}</td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700">
-                            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                            Active
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <button className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
-                            <MoreHorizontal className="h-5 w-5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+
+            {/* Login Methods */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                  <Lock className="h-5 w-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Login Methods</h3>
+                  <p className="text-sm text-gray-500">Choose which authentication methods users can use.</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* Email & Password */}
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center">
+                      <Mail className="h-5 w-5 text-gray-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-900">Email & Password</h4>
+                      <p className="text-xs text-gray-500">Traditional email and password login.</p>
+                    </div>
+                  </div>
+                  <Toggle checked={emailLoginEnabled} onChange={setEmailLoginEnabled} />
+                </div>
+
+                {/* Magic Link */}
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center">
+                      <Key className="h-5 w-5 text-gray-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-900">Magic Link</h4>
+                      <p className="text-xs text-gray-500">Passwordless email login with one-time links.</p>
+                    </div>
+                  </div>
+                  <Toggle checked={magicLinkEnabled} onChange={setMagicLinkEnabled} />
+                </div>
+
+                {/* Google OAuth */}
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-white border border-gray-200 flex items-center justify-center">
+                      <Globe className="h-5 w-5 text-gray-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-900">Google Sign-In</h4>
+                      <p className="text-xs text-gray-500">Allow users to sign in with Google.</p>
+                    </div>
+                  </div>
+                  <Toggle checked={googleAuthEnabled} onChange={setGoogleAuthEnabled} />
+                </div>
+              </div>
+            </div>
+
+            {/* Email Configuration */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                  <Mail className="h-5 w-5 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Email Configuration</h3>
+                  <p className="text-sm text-gray-500">Configure email settings for authentication.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1.5">From Email</label>
+                  <Input className="h-12 rounded-xl bg-gray-50" type="email" placeholder="noreply@lcntships.com" />
+                  <p className="text-xs text-gray-500 mt-1">Email address used for sending auth emails.</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1.5">From Name</label>
+                  <Input className="h-12 rounded-xl bg-gray-50" placeholder="lcntships" />
+                  <p className="text-xs text-gray-500 mt-1">Display name shown in email clients.</p>
+                </div>
+                <div className="col-span-1 md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-900 mb-1.5">Redirect URL after login</label>
+                  <Input className="h-12 rounded-xl bg-gray-50" placeholder="https://app.lcntships.com/dashboard" />
+                  <p className="text-xs text-gray-500 mt-1">Where users are redirected after successful login.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Supabase Connection */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+                  <Shield className="h-5 w-5 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Supabase Auth</h3>
+                  <p className="text-sm text-gray-500">Powered by Supabase authentication.</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 bg-emerald-50 text-emerald-700 px-4 py-3 rounded-xl border border-emerald-100 mb-6">
+                <Check className="h-5 w-5" />
+                <span className="text-sm font-bold">Supabase Auth Connected</span>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1.5">Project URL</label>
+                  <div className="relative">
+                    <Input
+                      className="h-12 rounded-xl bg-gray-50 pr-10 font-mono text-sm"
+                      value="https://xyzcompany.supabase.co"
+                      readOnly
+                    />
+                    <button className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600">
+                      <Copy className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1.5">Anon Key</label>
+                  <div className="relative">
+                    <Input
+                      className="h-12 rounded-xl bg-gray-50 pr-24 font-mono text-sm"
+                      type={showApiKey ? 'text' : 'password'}
+                      value={mockApiKey}
+                      readOnly
+                    />
+                    <div className="absolute right-3 top-3 flex items-center gap-2">
+                      <button
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        {showApiKey ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                      <button className="text-gray-400 hover:text-gray-600">
+                        <Copy className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <Button variant="outline" className="rounded-xl">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Regenerate Keys
+                </Button>
               </div>
             </div>
           </section>
@@ -397,75 +509,6 @@ export default function SettingsPage() {
                       />
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Payments Section */}
-          <section id="payments" className="scroll-mt-8">
-            <div className="mb-4">
-              <h2 className="text-2xl font-bold text-gray-900">Payments & Payouts</h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <h3 className="text-lg font-semibold mb-4">Payout Settings</h3>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center py-2 border-b border-gray-50">
-                    <span className="text-sm text-gray-500">Platform Fee</span>
-                    <span className="text-sm font-bold text-gray-900">10%</span>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Minimum Payout</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-gray-500">€</span>
-                      <Input className="h-10 rounded-xl bg-gray-50 pl-8" type="number" defaultValue="50" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Frequency</label>
-                    <select className="w-full h-10 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm focus:ring-2 focus:ring-indigo-500">
-                      <option>Weekly</option>
-                      <option>Monthly</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Payment Processor</h3>
-                  <p className="text-sm text-gray-500 mb-6">Manage your connection to Stripe for secure payments.</p>
-                  <div className="flex items-center gap-3 bg-green-50 text-green-700 px-4 py-3 rounded-xl border border-green-100">
-                    <Check className="h-5 w-5" />
-                    <span className="text-sm font-bold">Stripe Connected</span>
-                  </div>
-                </div>
-                <a href="#" className="text-indigo-600 text-sm font-semibold hover:underline mt-4 inline-flex items-center gap-1">
-                  Manage Stripe Account <ArrowRight className="h-4 w-4" />
-                </a>
-              </div>
-
-              <div className="col-span-1 md:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <h3 className="text-lg font-semibold mb-4">Bank Account Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-900 mb-1.5">Account Holder</label>
-                    <Input className="h-12 rounded-xl bg-gray-50" placeholder="lcntships BV" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-1.5">Bank Name</label>
-                    <Input className="h-12 rounded-xl bg-gray-50" placeholder="ING Bank" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-1.5">IBAN</label>
-                    <Input className="h-12 rounded-xl bg-gray-50 font-mono" placeholder="NL23 INGB 0000 •••• ••" />
-                  </div>
-                </div>
-                <div className="mt-4 flex justify-end">
-                  <Button variant="outline" className="rounded-xl">
-                    Update Bank Details
-                  </Button>
                 </div>
               </div>
             </div>

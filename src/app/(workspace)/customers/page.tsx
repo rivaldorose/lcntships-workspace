@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Search,
   Plus,
@@ -24,13 +24,33 @@ import {
   Camera,
   Sun,
   ExternalLink,
+  Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { customersApi, type Customer } from '@/lib/supabase'
 
-// Mock data
-const mockCustomers = [
+// Display interface for customers
+interface CustomerDisplay {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  totalBookings: number
+  totalSpent: number
+  lastBooking: string
+  type: string
+  avatar: string | null
+  isOnline: boolean
+  customerSince: string
+  avgBooking: number
+  favStudio: string
+}
+
+// Fallback data for when database is empty
+const fallbackCustomers: CustomerDisplay[] = [
   {
     id: '1',
     firstName: 'Sarah',
@@ -112,6 +132,24 @@ const mockCustomers = [
     favStudio: 'Studio A',
   },
 ]
+
+// Helper to format date
+function formatCustomerSince(dateString?: string): string {
+  if (!dateString) return 'Unknown'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+}
+
+// Helper to determine customer type based on data
+function determineCustomerType(customer: Customer): string {
+  const createdAt = customer.created_at ? new Date(customer.created_at) : new Date()
+  const now = new Date()
+  const daysSinceCreation = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
+
+  if (daysSinceCreation <= 30) return 'new'
+  if (customer.is_verified) return 'vip'
+  return 'regular'
+}
 
 const bookingHistory = [
   { id: '1', studio: 'Studio A (North Light)', date: 'Mar 15', hours: '4 hours', time: '09:00 - 13:00', amount: 800 },
@@ -277,7 +315,7 @@ function AddCustomerModal({ isOpen, onClose }: AddCustomerModalProps) {
 
 // Customer Detail Sidebar Component
 interface CustomerDetailSidebarProps {
-  customer: typeof mockCustomers[0] | null
+  customer: CustomerDisplay | null
   isOpen: boolean
   onClose: () => void
 }
@@ -521,15 +559,58 @@ function CustomerDetailSidebar({ customer, isOpen, onClose }: CustomerDetailSide
 }
 
 export default function CustomersPage() {
+  const [customers, setCustomers] = useState<CustomerDisplay[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<string | null>(null)
   const [lastActiveFilter, setLastActiveFilter] = useState('all')
   const [sortBy, setSortBy] = useState('newest')
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [selectedCustomer, setSelectedCustomer] = useState<typeof mockCustomers[0] | null>(null)
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerDisplay | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
-  const filteredCustomers = mockCustomers.filter((customer) => {
+  // Fetch customers from Supabase
+  useEffect(() => {
+    async function fetchCustomers() {
+      try {
+        const data = await customersApi.getAll()
+        if (data && data.length > 0) {
+          // Map Supabase data to display format
+          setCustomers(data.map((c: Customer) => {
+            const nameParts = (c.full_name || 'Unknown User').split(' ')
+            return {
+              id: c.id,
+              firstName: nameParts[0] || 'Unknown',
+              lastName: nameParts.slice(1).join(' ') || '',
+              email: c.email,
+              phone: c.phone || '',
+              totalBookings: 0, // Would need to aggregate from bookings
+              totalSpent: 0, // Would need to aggregate from bookings
+              lastBooking: 'N/A',
+              type: determineCustomerType(c),
+              avatar: c.avatar_url || null,
+              isOnline: false,
+              customerSince: formatCustomerSince(c.created_at),
+              avgBooking: 0,
+              favStudio: 'N/A',
+            }
+          }))
+        } else {
+          // Use fallback data if database is empty
+          setCustomers(fallbackCustomers)
+        }
+      } catch (error) {
+        console.error('Error fetching customers:', error)
+        // Use fallback data on error
+        setCustomers(fallbackCustomers)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchCustomers()
+  }, [])
+
+  const filteredCustomers = customers.filter((customer) => {
     const matchesSearch =
       customer.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       customer.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -540,18 +621,27 @@ export default function CustomersPage() {
     return matchesSearch && matchesType
   })
 
-  const totalCustomers = mockCustomers.length
-  const activeThisMonth = mockCustomers.filter(c => c.totalBookings > 0).length
-  const newThisWeek = mockCustomers.filter(c => c.type === 'new').length
-  const repeatCustomers = Math.round((mockCustomers.filter(c => c.totalBookings > 1).length / totalCustomers) * 100)
+  const totalCustomers = customers.length
+  const activeThisMonth = customers.filter(c => c.totalBookings > 0).length
+  const newThisWeek = customers.filter(c => c.type === 'new').length
+  const repeatCustomers = totalCustomers > 0 ? Math.round((customers.filter(c => c.totalBookings > 1).length / totalCustomers) * 100) : 0
 
-  const handleViewCustomer = (customer: typeof mockCustomers[0]) => {
+  const handleViewCustomer = (customer: CustomerDisplay) => {
     setSelectedCustomer(customer)
     setIsSidebarOpen(true)
   }
 
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    )
+  }
+
   // Show empty state if no customers
-  const showEmptyState = mockCustomers.length === 0
+  const showEmptyState = customers.length === 0
 
   if (showEmptyState) {
     return (
@@ -947,7 +1037,7 @@ export default function CustomersPage() {
       </div>
 
       {/* No results state */}
-      {filteredCustomers.length === 0 && mockCustomers.length > 0 && (
+      {filteredCustomers.length === 0 && customers.length > 0 && (
         <div className="text-center py-12 bg-gray-50 rounded-2xl">
           <Search className="h-12 w-12 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No customers found</h3>

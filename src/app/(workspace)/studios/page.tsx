@@ -26,66 +26,38 @@ import {
   Printer,
   Wind,
   Lock,
+  Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { studiosApi, type Studio } from '@/lib/supabase'
 
-// Mock studio data
-const mockStudios = [
+// Fallback mock data for when database is empty
+const fallbackStudios = [
   {
     id: '1',
-    name: 'The North Loft',
+    title: 'The North Loft',
     location: 'Brooklyn, NY',
-    spaces: 12,
-    occupancy: 94,
+    capacity: 12,
     status: 'active',
-    image: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800',
+    images: ['https://images.unsplash.com/photo-1497366216548-37526070297c?w=800'],
   },
   {
     id: '2',
-    name: 'Riverside Yoga Collective',
+    title: 'Riverside Yoga Collective',
     location: 'Berlin Mitte',
-    spaces: 5,
-    occupancy: 82,
+    capacity: 5,
     status: 'active',
-    image: 'https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=800',
+    images: ['https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=800'],
   },
   {
     id: '3',
-    name: 'Zenith Meeting Hub',
+    title: 'Zenith Meeting Hub',
     location: 'London Shoreditch',
-    spaces: 8,
-    occupancy: 75,
+    capacity: 8,
     status: 'active',
-    image: 'https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=800',
-  },
-  {
-    id: '4',
-    name: 'Urban Creative Studio',
-    location: 'Amsterdam West',
-    spaces: 10,
-    occupancy: 88,
-    status: 'active',
-    image: 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?w=800',
-  },
-  {
-    id: '5',
-    name: 'Harbor Meeting Point',
-    location: 'San Francisco, CA',
-    spaces: 4,
-    occupancy: 65,
-    status: 'active',
-    image: 'https://images.unsplash.com/photo-1462826303086-329426d1aef5?w=800',
-  },
-  {
-    id: '6',
-    name: 'Bloom Wellness Space',
-    location: 'Paris, FR',
-    spaces: 7,
-    occupancy: 91,
-    status: 'active',
-    image: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800',
+    images: ['https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=800'],
   },
 ]
 
@@ -104,9 +76,22 @@ const statusConfig = {
   },
 }
 
+// Studio display type
+interface StudioDisplay {
+  id: string
+  title: string
+  location: string
+  capacity?: number
+  status?: string
+  images?: string[]
+  avg_rating?: number
+  total_reviews?: number
+}
+
 // Studio Card Component
-function StudioCard({ studio }: { studio: typeof mockStudios[0] }) {
-  const status = statusConfig[studio.status as keyof typeof statusConfig]
+function StudioCard({ studio }: { studio: StudioDisplay }) {
+  const status = statusConfig[(studio.status || 'active') as keyof typeof statusConfig] || statusConfig.active
+  const image = studio.images?.[0] || 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800'
 
   return (
     <Link href={`/studios/${studio.id}`} className="group">
@@ -114,8 +99,8 @@ function StudioCard({ studio }: { studio: typeof mockStudios[0] }) {
         {/* Image */}
         <div className="relative p-4">
           <div
-            className="w-full aspect-[16/10] bg-cover bg-center rounded-xl"
-            style={{ backgroundImage: `url(${studio.image})` }}
+            className="w-full aspect-[16/10] bg-cover bg-center rounded-xl bg-gray-100"
+            style={{ backgroundImage: `url(${image})` }}
           />
           <div className={cn(
             'absolute top-6 right-6 px-3 py-1 backdrop-blur-sm text-white text-[10px] font-bold uppercase tracking-wider rounded-full',
@@ -129,7 +114,7 @@ function StudioCard({ studio }: { studio: typeof mockStudios[0] }) {
         <div className="px-6 pb-6 flex flex-col gap-3">
           <div>
             <h3 className="text-gray-900 text-xl font-bold leading-tight group-hover:text-indigo-600 transition-colors">
-              {studio.name}
+              {studio.title}
             </h3>
             <div className="flex items-center gap-1 mt-1 text-gray-500">
               <MapPin className="h-3.5 w-3.5" />
@@ -140,12 +125,14 @@ function StudioCard({ studio }: { studio: typeof mockStudios[0] }) {
           <div className="flex flex-wrap gap-2 mt-2">
             <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-full">
               <Building2 className="h-4 w-4 text-indigo-600" />
-              <span className="text-xs font-semibold text-gray-700">{studio.spaces} Spaces</span>
+              <span className="text-xs font-semibold text-gray-700">{studio.capacity || 1} Capacity</span>
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-full">
-              <BarChart3 className="h-4 w-4 text-indigo-600" />
-              <span className="text-xs font-semibold text-gray-700">{studio.occupancy}% Occupancy</span>
-            </div>
+            {studio.avg_rating && (
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-full">
+                <BarChart3 className="h-4 w-4 text-indigo-600" />
+                <span className="text-xs font-semibold text-gray-700">{studio.avg_rating} Rating</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -683,9 +670,42 @@ export default function StudiosPage() {
   const [typeFilter, setTypeFilter] = useState('All Types')
   const [statusFilter, setStatusFilter] = useState('Active')
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [studios, setStudios] = useState<StudioDisplay[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const filteredStudios = mockStudios.filter((studio) => {
-    const matchesSearch = studio.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  // Fetch studios from Supabase
+  useEffect(() => {
+    async function fetchStudios() {
+      try {
+        const data = await studiosApi.getAll()
+        if (data && data.length > 0) {
+          setStudios(data.map(s => ({
+            id: s.id,
+            title: s.title,
+            location: s.location,
+            capacity: s.capacity,
+            status: s.status,
+            images: s.images,
+            avg_rating: s.avg_rating,
+            total_reviews: s.total_reviews,
+          })))
+        } else {
+          // Use fallback data if database is empty
+          setStudios(fallbackStudios)
+        }
+      } catch (error) {
+        console.error('Error fetching studios:', error)
+        // Use fallback data on error
+        setStudios(fallbackStudios)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchStudios()
+  }, [])
+
+  const filteredStudios = studios.filter((studio) => {
+    const matchesSearch = studio.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       studio.location.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesStatus = statusFilter === 'All' || studio.status === statusFilter.toLowerCase()
     return matchesSearch && matchesStatus
@@ -752,7 +772,12 @@ export default function StudiosPage() {
       </div>
 
       {/* Studios Grid */}
-      {filteredStudios.length > 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+          <span className="ml-3 text-gray-500">Loading studios...</span>
+        </div>
+      ) : filteredStudios.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredStudios.map((studio) => (
             <StudioCard key={studio.id} studio={studio} />

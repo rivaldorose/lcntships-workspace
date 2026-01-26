@@ -22,13 +22,28 @@ import {
   PartyPopper,
   Send,
   FileText,
+  Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { partnersApi, type Partner } from '@/lib/supabase'
 
-// Mock data
-const mockPartners = [
+// Display interface for partners
+interface PartnerDisplay {
+  id: string
+  company_name: string
+  contact_name: string
+  location: string
+  status: string
+  type: string
+  bookings_per_month: number
+  revenue_share: number
+  image: string
+}
+
+// Fallback data for when database is empty
+const fallbackPartners: PartnerDisplay[] = [
   {
     id: '1',
     company_name: 'Lumina Yoga',
@@ -121,7 +136,7 @@ const statusConfig = {
 const studioTypes = ['All Types', 'Yoga', 'Pilates', 'Crossfit', 'Cycling', 'Photo', 'Music', 'Video', 'Podcast']
 
 interface PartnerCardProps {
-  partner: typeof mockPartners[0]
+  partner: PartnerDisplay
 }
 
 function PartnerCard({ partner }: PartnerCardProps) {
@@ -870,12 +885,47 @@ function AddPartnerModal({ isOpen, onClose }: AddPartnerModalProps) {
 }
 
 export default function PartnersPage() {
+  const [partners, setPartners] = useState<PartnerDisplay[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [typeFilter, setTypeFilter] = useState('All Types')
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
 
-  const filteredPartners = mockPartners.filter((partner) => {
+  // Fetch partners from Supabase
+  useEffect(() => {
+    async function fetchPartners() {
+      try {
+        const data = await partnersApi.getAll()
+        if (data && data.length > 0) {
+          // Map Supabase data to display format
+          setPartners(data.map((p: Partner) => ({
+            id: p.id,
+            company_name: p.company_name,
+            contact_name: p.contact_name,
+            location: [p.city, p.country].filter(Boolean).join(', ') || 'Unknown',
+            status: p.status,
+            type: p.tier || 'standard',
+            bookings_per_month: p.studios_count || 0,
+            revenue_share: p.commission_rate || 15,
+            image: p.avatar_url || '',
+          })))
+        } else {
+          // Use fallback data if database is empty
+          setPartners(fallbackPartners)
+        }
+      } catch (error) {
+        console.error('Error fetching partners:', error)
+        // Use fallback data on error
+        setPartners(fallbackPartners)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchPartners()
+  }, [])
+
+  const filteredPartners = partners.filter((partner) => {
     const matchesSearch =
       partner.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       partner.contact_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -885,6 +935,14 @@ export default function PartnersPage() {
 
     return matchesSearch && matchesStatus && matchesType
   })
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
