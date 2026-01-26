@@ -1,249 +1,594 @@
 'use client'
 
-import { useState } from 'react'
-import { Calendar, List, Plus } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
+import Link from 'next/link'
+import {
+  Plus,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  MoreHorizontal,
+  X,
+  Calendar,
+  Clock,
+  User,
+  Building2,
+  CreditCard,
+  Mail,
+  Phone,
+  MapPin,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { PageHeader } from '@/components/layout/PageHeader'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { BookingCalendar } from '@/components/bookings/BookingCalendar'
-import { BookingTable } from '@/components/bookings/BookingTable'
-import type { BookingWithRelations } from '@/types'
+import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 
-// Mock data for demonstration
-const mockBookings: BookingWithRelations[] = [
+// Mock booking data
+const mockBookings = [
   {
-    id: '1',
-    studio_id: '1',
-    customer_id: '1',
-    partner_id: '1',
-    date: '2025-01-26',
-    start_time: '09:00',
-    end_time: '12:00',
-    duration_hours: 3,
-    subtotal: 450,
-    platform_fee: 67.5,
-    partner_payout: 382.5,
-    status: 'confirmed',
-    notes: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    studio: {
-      id: '1',
-      partner_id: null,
-      name: 'Sunlight Studios',
-      description: '',
-      type: 'photo',
-      city: 'Los Angeles',
-      address: null,
-      hourly_rate: 150,
-      half_day_rate: null,
-      full_day_rate: null,
-      amenities: [],
-      equipment: [],
-      images: [],
-      status: 'active',
-      rating: 4.9,
-      review_count: 128,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
+    id: 'BK-8829',
     customer: {
-      id: '1',
-      user_id: null,
-      full_name: 'Sarah Chen',
-      email: 'sarah@example.com',
-      phone: null,
-      company: null,
-      total_bookings: 5,
-      total_spent: 2250,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      name: 'Alex Rivera',
+      email: 'alex@creativelab.com',
+      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100',
     },
+    studio: 'Studio Alpha',
+    date: 'Oct 24, 2023',
+    time: '10:00 AM - 12:30 PM',
+    price: '$125.00',
+    status: 'confirmed',
   },
   {
-    id: '2',
-    studio_id: '2',
-    customer_id: '2',
-    partner_id: '2',
-    date: '2025-01-26',
-    start_time: '14:00',
-    end_time: '18:00',
-    duration_hours: 4,
-    subtotal: 800,
-    platform_fee: 120,
-    partner_payout: 680,
-    status: 'confirmed',
-    notes: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    studio: {
-      id: '2',
-      partner_id: null,
-      name: 'Echo Sound Studio',
-      description: '',
-      type: 'podcast',
-      city: 'New York',
-      address: null,
-      hourly_rate: 200,
-      half_day_rate: null,
-      full_day_rate: null,
-      amenities: [],
-      equipment: [],
-      images: [],
-      status: 'active',
-      rating: 4.8,
-      review_count: 95,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
+    id: 'BK-8830',
     customer: {
-      id: '2',
-      user_id: null,
-      full_name: 'Mike Rodriguez',
-      email: 'mike@example.com',
-      phone: null,
-      company: 'Podcast Co',
-      total_bookings: 12,
-      total_spent: 4800,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      name: 'Jordan Smith',
+      email: 'j.smith@media.co',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
     },
-  },
-  {
-    id: '3',
-    studio_id: '3',
-    customer_id: '3',
-    partner_id: '3',
-    date: '2025-01-28',
-    start_time: '10:00',
-    end_time: '14:00',
-    duration_hours: 4,
-    subtotal: 700,
-    platform_fee: 105,
-    partner_payout: 595,
+    studio: 'Podcast Suite',
+    date: 'Oct 25, 2023',
+    time: '02:00 PM - 04:00 PM',
+    price: '$80.00',
     status: 'pending',
-    notes: 'Waiting for payment confirmation',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    studio: {
-      id: '3',
-      partner_id: null,
-      name: 'The Creative Loft',
-      description: '',
-      type: 'video',
-      city: 'Chicago',
-      address: null,
-      hourly_rate: 175,
-      half_day_rate: null,
-      full_day_rate: null,
-      amenities: [],
-      equipment: [],
-      images: [],
-      status: 'active',
-      rating: 4.7,
-      review_count: 72,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    customer: {
-      id: '3',
-      user_id: null,
-      full_name: 'Emily Watson',
-      email: 'emily@example.com',
-      phone: null,
-      company: 'Watson Productions',
-      total_bookings: 3,
-      total_spent: 1400,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
   },
   {
-    id: '4',
-    studio_id: '4',
-    customer_id: '4',
-    partner_id: '4',
-    date: '2025-01-25',
-    start_time: '16:00',
-    end_time: '19:00',
-    duration_hours: 3,
-    subtotal: 375,
-    platform_fee: 56.25,
-    partner_payout: 318.75,
-    status: 'completed',
-    notes: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    studio: {
-      id: '4',
-      partner_id: null,
-      name: 'Podcast Pro Studio',
-      description: '',
-      type: 'podcast',
-      city: 'Austin',
-      address: null,
-      hourly_rate: 125,
-      half_day_rate: null,
-      full_day_rate: null,
-      amenities: [],
-      equipment: [],
-      images: [],
-      status: 'active',
-      rating: 4.9,
-      review_count: 156,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
+    id: 'BK-8831',
     customer: {
-      id: '4',
-      user_id: null,
-      full_name: 'James Kim',
-      email: 'james@example.com',
-      phone: null,
-      company: 'Tech Talk Show',
-      total_bookings: 8,
-      total_spent: 3000,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      name: 'Maya Chen',
+      email: 'maya@vision.io',
+      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100',
     },
+    studio: 'Infinity Wall',
+    date: 'Oct 26, 2023',
+    time: '09:00 AM - 05:00 PM',
+    price: '$450.00',
+    status: 'completed',
+  },
+  {
+    id: 'BK-8832',
+    customer: {
+      name: 'David Lee',
+      email: 'david@startup.io',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100',
+    },
+    studio: 'Green Screen Room',
+    date: 'Oct 27, 2023',
+    time: '11:00 AM - 03:00 PM',
+    price: '$280.00',
+    status: 'confirmed',
   },
 ]
 
-export default function BookingsPage() {
-  const [view, setView] = useState<'calendar' | 'list'>('calendar')
+// Calendar events for specific days
+const calendarEvents: Record<number, { title: string; color: string }[]> = {
+  2: [{ title: 'Studio A: 10AM - Podcast Session', color: 'bg-indigo-100 text-indigo-600 border-indigo-200' }],
+  4: [{ title: 'Studio B: 1PM - Video Shoot', color: 'bg-emerald-50 text-emerald-600 border-emerald-100' }],
+  6: [{ title: 'Pending: 4PM - Studio C', color: 'bg-amber-50 text-amber-600 border-amber-100' }],
+  10: [{ title: '2PM - Creative Workshop', color: 'bg-indigo-100 text-indigo-600 border-indigo-200' }],
+  15: [{ title: 'Studio D: 9AM - Full Day', color: 'bg-emerald-50 text-emerald-600 border-emerald-100' }],
+  18: [{ title: 'Photo Session: 2PM', color: 'bg-indigo-100 text-indigo-600 border-indigo-200' }],
+  22: [{ title: 'Podcast Recording', color: 'bg-indigo-100 text-indigo-600 border-indigo-200' }],
+  25: [{ title: 'Video Production', color: 'bg-emerald-50 text-emerald-600 border-emerald-100' }],
+}
+
+const statusConfig = {
+  confirmed: {
+    label: 'Confirmed',
+    bgColor: 'bg-indigo-100',
+    textColor: 'text-indigo-600',
+    dotColor: 'bg-indigo-600',
+  },
+  pending: {
+    label: 'Pending',
+    bgColor: 'bg-amber-100',
+    textColor: 'text-amber-600',
+    dotColor: 'bg-amber-500',
+  },
+  completed: {
+    label: 'Completed',
+    bgColor: 'bg-emerald-100',
+    textColor: 'text-emerald-600',
+    dotColor: 'bg-emerald-500',
+  },
+  cancelled: {
+    label: 'Cancelled',
+    bgColor: 'bg-rose-100',
+    textColor: 'text-rose-600',
+    dotColor: 'bg-rose-500',
+  },
+}
+
+// Manual Booking Modal
+interface ManualBookingModalProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
+function ManualBookingModal({ isOpen, onClose }: ManualBookingModalProps) {
+  const [mounted, setMounted] = useState(false)
+  const [formData, setFormData] = useState({
+    customerName: '',
+    customerEmail: '',
+    customerPhone: '',
+    studio: '',
+    date: '',
+    startTime: '',
+    endTime: '',
+    notes: '',
+  })
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!isOpen || !mounted) return null
+
+  const handleSubmit = () => {
+    // Handle form submission
+    onClose()
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-3xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden flex flex-col animate-fade-in">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Manual Booking</h2>
+            <p className="text-sm text-gray-500">Create a new booking manually</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Form Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="space-y-6">
+            {/* Customer Information */}
+            <div>
+              <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <User className="h-4 w-4 text-indigo-600" />
+                Customer Information
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                  <Input
+                    placeholder="John Doe"
+                    value={formData.customerName}
+                    onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
+                    className="h-12 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                  <Input
+                    type="email"
+                    placeholder="john@example.com"
+                    value={formData.customerEmail}
+                    onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })}
+                    className="h-12 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                  <Input
+                    type="tel"
+                    placeholder="+1 234 567 890"
+                    value={formData.customerPhone}
+                    onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
+                    className="h-12 rounded-xl"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Booking Details */}
+            <div>
+              <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-indigo-600" />
+                Booking Details
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Studio *</label>
+                  <select
+                    value={formData.studio}
+                    onChange={(e) => setFormData({ ...formData, studio: e.target.value })}
+                    className="w-full h-12 rounded-xl border border-gray-200 px-4 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="">Select a studio...</option>
+                    <option value="studio-alpha">Studio Alpha - $50/hr</option>
+                    <option value="podcast-suite">Podcast Suite - $40/hr</option>
+                    <option value="infinity-wall">Infinity Wall - $75/hr</option>
+                    <option value="green-screen">Green Screen Room - $60/hr</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
+                  <Input
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    className="h-12 rounded-xl"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Start Time *</label>
+                    <Input
+                      type="time"
+                      value={formData.startTime}
+                      onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">End Time *</label>
+                    <Input
+                      type="time"
+                      value={formData.endTime}
+                      onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                  <textarea
+                    placeholder="Any special requirements or notes..."
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    className="w-full h-24 rounded-xl border border-gray-200 px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between p-6 border-t border-gray-100 bg-gray-50">
+          <Button variant="ghost" onClick={onClose} className="h-12 px-6 rounded-xl">
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} className="h-12 px-8 rounded-xl shadow-lg shadow-indigo-200">
+            Create Booking
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+// Calendar Component
+function BookingCalendar({
+  currentDate,
+  onPrevMonth,
+  onNextMonth,
+  viewMode,
+  setViewMode,
+}: {
+  currentDate: Date
+  onPrevMonth: () => void
+  onNextMonth: () => void
+  viewMode: 'month' | 'week' | 'list'
+  setViewMode: (mode: 'month' | 'week' | 'list') => void
+}) {
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ]
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+  const year = currentDate.getFullYear()
+  const month = currentDate.getMonth()
+
+  // Get first day of month and total days
+  const firstDayOfMonth = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+  // Generate calendar days
+  const calendarDays: (number | null)[] = []
+  for (let i = 0; i < firstDayOfMonth; i++) {
+    calendarDays.push(null)
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    calendarDays.push(day)
+  }
+
+  const today = new Date()
+  const isToday = (day: number) =>
+    day === today.getDate() && month === today.getMonth() && year === today.getFullYear()
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <PageHeader
-        title="Bookings"
-        description="Manage all studio bookings"
-        actions={
-          <div className="flex items-center gap-3">
-            <Tabs value={view} onValueChange={(v) => setView(v as 'calendar' | 'list')}>
-              <TabsList>
-                <TabsTrigger value="calendar" className="gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Calendar
-                </TabsTrigger>
-                <TabsTrigger value="list" className="gap-2">
-                  <List className="h-4 w-4" />
-                  List
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              New Booking
-            </Button>
+    <div className="bg-white rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
+      {/* Calendar Toolbar */}
+      <div className="p-6 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-6">
+          <h3 className="text-2xl font-bold text-gray-900">
+            {monthNames[month]} {year}
+          </h3>
+          <div className="flex items-center bg-gray-100 rounded-full p-1">
+            <button
+              onClick={onPrevMonth}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white hover:shadow-sm transition-all text-gray-600"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              onClick={onNextMonth}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white hover:shadow-sm transition-all text-gray-600"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
           </div>
-        }
+        </div>
+        <div className="flex items-center gap-4">
+          {/* View Mode Toggle */}
+          <div className="flex bg-gray-100 rounded-full p-1 h-11">
+            {(['month', 'week', 'list'] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={cn(
+                  'px-5 flex items-center justify-center rounded-full transition-all text-sm font-semibold capitalize',
+                  viewMode === mode
+                    ? 'bg-white shadow-sm text-indigo-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                )}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+          <button className="w-11 h-11 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+            <Filter className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Calendar Grid */}
+      <div className="p-6">
+        {/* Day Headers */}
+        <div className="grid grid-cols-7 border-b border-gray-100 pb-4 mb-4">
+          {dayNames.map((day) => (
+            <div
+              key={day}
+              className="text-center text-xs font-black text-gray-400 uppercase tracking-widest"
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+
+        {/* Calendar Days */}
+        <div className="grid grid-cols-7 gap-4">
+          {calendarDays.map((day, index) => {
+            const events = day ? calendarEvents[day] || [] : []
+            return (
+              <div
+                key={index}
+                className={cn(
+                  'min-h-[120px] p-2 rounded-2xl border transition-all',
+                  day
+                    ? isToday(day)
+                      ? 'bg-indigo-50/50 ring-2 ring-indigo-200 border-indigo-100'
+                      : 'border-gray-50 bg-gray-50/30 hover:bg-gray-50 hover:border-gray-100'
+                    : 'border-transparent'
+                )}
+              >
+                {day && (
+                  <>
+                    <span
+                      className={cn(
+                        'text-sm font-bold',
+                        isToday(day) ? 'text-indigo-600' : 'text-gray-400'
+                      )}
+                    >
+                      {day}
+                    </span>
+                    {events.map((event, eventIndex) => (
+                      <div
+                        key={eventIndex}
+                        className={cn(
+                          'mt-2 p-2 border rounded-xl text-[10px] font-bold leading-tight cursor-pointer hover:opacity-80 transition-opacity',
+                          event.color
+                        )}
+                      >
+                        {event.title}
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Bookings Table Component
+function BookingsTable({ bookings }: { bookings: typeof mockBookings }) {
+  return (
+    <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
+      <table className="w-full text-left">
+        <thead>
+          <tr className="border-b border-gray-100 bg-gray-50/50">
+            <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">
+              Customer
+            </th>
+            <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">
+              Studio
+            </th>
+            <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">
+              Date & Time
+            </th>
+            <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">
+              Price
+            </th>
+            <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">
+              Status
+            </th>
+            <th className="px-6 py-4"></th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {bookings.map((booking) => {
+            const status = statusConfig[booking.status as keyof typeof statusConfig]
+            return (
+              <tr
+                key={booking.id}
+                className="hover:bg-gray-50/50 transition-colors cursor-pointer"
+              >
+                <td className="px-6 py-5">
+                  <Link href={`/bookings/${booking.id}`} className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-full bg-gray-200 bg-cover bg-center"
+                      style={{ backgroundImage: `url(${booking.customer.avatar})` }}
+                    />
+                    <div>
+                      <p className="font-bold text-gray-900">{booking.customer.name}</p>
+                      <p className="text-xs text-gray-500">{booking.customer.email}</p>
+                    </div>
+                  </Link>
+                </td>
+                <td className="px-6 py-5">
+                  <span className="px-3 py-1 bg-gray-100 rounded-full text-xs font-bold text-gray-600">
+                    {booking.studio}
+                  </span>
+                </td>
+                <td className="px-6 py-5">
+                  <p className="text-sm font-semibold text-gray-900">{booking.date}</p>
+                  <p className="text-xs text-gray-500">{booking.time}</p>
+                </td>
+                <td className="px-6 py-5">
+                  <span className="font-bold text-gray-900">{booking.price}</span>
+                </td>
+                <td className="px-6 py-5">
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold',
+                      status.bgColor,
+                      status.textColor
+                    )}
+                  >
+                    <span className={cn('w-1.5 h-1.5 rounded-full', status.dotColor)} />
+                    {status.label}
+                  </span>
+                </td>
+                <td className="px-6 py-5 text-right">
+                  <button className="text-gray-400 hover:text-gray-600">
+                    <MoreHorizontal className="h-5 w-5" />
+                  </button>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-center">
+        <button className="flex items-center gap-2 text-sm font-bold text-gray-600 hover:text-indigo-600 transition-colors">
+          Load More Bookings
+          <ChevronRight className="h-4 w-4 rotate-90" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Main Bookings Page
+export default function BookingsPage() {
+  const [currentDate, setCurrentDate] = useState(new Date(2023, 9, 1)) // October 2023
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'list'>('month')
+  const [showManualBooking, setShowManualBooking] = useState(false)
+
+  const handlePrevMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
+  }
+
+  const handleNextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
+  }
+
+  return (
+    <div className="space-y-8 animate-fade-in">
+      {/* Page Header */}
+      <div className="flex flex-wrap items-end justify-between gap-6">
+        <div className="space-y-1">
+          <h1 className="text-4xl font-black text-gray-900 tracking-tight">Bookings</h1>
+          <p className="text-gray-500 text-lg">
+            Manage all studio reservations and availability
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" className="rounded-full h-12 px-6">
+            <Download className="h-4 w-4 mr-2" />
+            Export Schedule
+          </Button>
+          <Button
+            className="rounded-full h-12 px-6 shadow-lg shadow-indigo-200"
+            onClick={() => setShowManualBooking(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Manual Booking
+          </Button>
+        </div>
+      </div>
+
+      {/* Calendar */}
+      <BookingCalendar
+        currentDate={currentDate}
+        onPrevMonth={handlePrevMonth}
+        onNextMonth={handleNextMonth}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
       />
 
-      {view === 'calendar' ? (
-        <BookingCalendar />
-      ) : (
-        <BookingTable bookings={mockBookings} />
-      )}
+      {/* Upcoming Bookings */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-black text-gray-900">Upcoming Bookings</h2>
+          <button className="text-indigo-600 font-bold text-sm hover:underline">
+            View All
+          </button>
+        </div>
+        <BookingsTable bookings={mockBookings} />
+      </div>
+
+      {/* Manual Booking Modal */}
+      <ManualBookingModal
+        isOpen={showManualBooking}
+        onClose={() => setShowManualBooking(false)}
+      />
     </div>
   )
 }
