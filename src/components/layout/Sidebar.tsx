@@ -18,6 +18,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Mail,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -30,6 +31,7 @@ const mainNavItems = [
   { href: '/bookings', label: 'Bookings', icon: Calendar },
   { href: '/partners', label: 'Partners', icon: Users },
   { href: '/customers', label: 'Customers', icon: UserCircle },
+  { href: '/email', label: 'Email', icon: Mail },
 ]
 
 const businessNavItems = [

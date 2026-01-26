@@ -1,311 +1,1202 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Instagram, Music2, Linkedin, Twitter, Calendar, Clock, Edit, Trash2 } from 'lucide-react'
+import {
+  Plus,
+  Instagram,
+  Linkedin,
+  Twitter,
+  Youtube,
+  Calendar,
+  Clock,
+  Edit,
+  Trash2,
+  MoreHorizontal,
+  Search,
+  Filter,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  List,
+  LayoutGrid,
+  CalendarDays,
+  TrendingUp,
+  Heart,
+  Eye,
+  MessageCircle,
+  Share2,
+  Repeat,
+  MousePointer,
+  BarChart3,
+  Send,
+  FileEdit,
+  X,
+  Image as ImageIcon,
+  Bold,
+  Italic,
+  Link2,
+  Smile,
+  Sparkles,
+  Copy,
+  ExternalLink,
+  Sun,
+  Moon,
+  Sunrise,
+  Info,
+  Check,
+  Facebook,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { PageHeader } from '@/components/layout/PageHeader'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { formatDate } from '@/lib/utils'
-import type { MarketingPost } from '@/types'
+import { cn } from '@/lib/utils'
 
-const platformIcons = {
-  instagram: { icon: Instagram, color: 'text-pink-600 bg-pink-50' },
-  tiktok: { icon: Music2, color: 'text-gray-900 bg-gray-100' },
-  linkedin: { icon: Linkedin, color: 'text-blue-600 bg-blue-50' },
-  twitter: { icon: Twitter, color: 'text-sky-500 bg-sky-50' },
+// Types
+type ViewMode = 'list' | 'calendar' | 'drafts'
+type PostStatus = 'draft' | 'scheduled' | 'published'
+type Platform = 'instagram' | 'twitter' | 'linkedin' | 'youtube' | 'facebook'
+
+interface MarketingPost {
+  id: string
+  title: string
+  content: string
+  platform: Platform
+  status: PostStatus
+  scheduledAt?: string
+  scheduledTime?: string
+  publishedAt?: string
+  engagement?: {
+    likes?: number
+    shares?: number
+    clicks?: number
+    comments?: number
+    reach?: number
+    views?: number
+  }
+  image?: string
+  createdAt: string
 }
 
 // Mock data
 const mockPosts: MarketingPost[] = [
   {
     id: '1',
-    title: 'New Partner Spotlight: Sunlight Studios',
-    content: 'Excited to welcome @sunlightstudios to the lcntships family! Beautiful natural light studio in LA.',
+    title: 'Morning vibes at the office ☕✨',
+    content: 'Starting the day right with some fresh brew...',
     platform: 'instagram',
-    scheduled_at: new Date(Date.now() + 86400000 * 2).toISOString(),
-    published_at: null,
-    status: 'scheduled',
-    created_at: new Date().toISOString(),
+    status: 'published',
+    publishedAt: 'Oct 24',
+    scheduledTime: '10:00 AM',
+    engagement: { likes: 1200, shares: 42, clicks: 1200 },
+    image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400',
+    createdAt: '2024-01-20',
   },
   {
     id: '2',
-    title: '5 Tips for Studio Shoots',
-    content: 'Here are our top 5 tips for making the most of your studio rental...',
-    platform: 'linkedin',
-    scheduled_at: new Date(Date.now() + 86400000 * 3).toISOString(),
-    published_at: null,
+    title: 'Big announcement coming soon! 🚀',
+    content: '#marketing #growth #startup life',
+    platform: 'twitter',
     status: 'scheduled',
-    created_at: new Date().toISOString(),
+    scheduledAt: 'Oct 25',
+    scheduledTime: '02:00 PM',
+    createdAt: '2024-01-21',
   },
   {
     id: '3',
-    title: 'Behind the Scenes at Echo Sound',
-    content: 'Take a peek behind the scenes at one of our favorite podcast studios!',
-    platform: 'tiktok',
-    scheduled_at: null,
-    published_at: new Date(Date.now() - 86400000).toISOString(),
-    status: 'published',
-    created_at: new Date().toISOString(),
+    title: 'Q3 Report Analysis',
+    content: 'Breaking down the key metrics from last quarter...',
+    platform: 'linkedin',
+    status: 'draft',
+    scheduledAt: 'Oct 26',
+    scheduledTime: '09:00 AM',
+    image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400',
+    createdAt: '2024-01-22',
   },
   {
     id: '4',
-    title: 'Creative Studio Deals This Week',
-    content: 'Special pricing on video production studios this week only!',
+    title: 'Weekly Roundup Vlog #42',
+    content: 'Everything you missed this week in tech...',
+    platform: 'youtube',
+    status: 'published',
+    publishedAt: 'Oct 22',
+    scheduledTime: '05:00 PM',
+    engagement: { views: 3400, likes: 245, comments: 32 },
+    image: 'https://images.unsplash.com/photo-1611162616475-46b635cb6868?w=400',
+    createdAt: '2024-01-19',
+  },
+  {
+    id: '5',
+    title: 'Product Launch Teaser',
+    content: 'Excited to share our latest update! We\'ve been working hard...',
+    platform: 'instagram',
+    status: 'scheduled',
+    scheduledAt: 'Oct 24',
+    scheduledTime: '09:00 AM',
+    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400',
+    createdAt: '2024-01-23',
+  },
+  {
+    id: '6',
+    title: 'Thread: 5 Tips for Growth',
+    content: 'Let me share what I learned about growing a startup...',
     platform: 'twitter',
-    scheduled_at: null,
-    published_at: null,
+    status: 'scheduled',
+    scheduledAt: 'Oct 23',
+    scheduledTime: '02:15 PM',
+    createdAt: '2024-01-24',
+  },
+  {
+    id: '7',
+    title: 'Carousel: Behind the scenes',
+    content: 'Take a peek at our creative process...',
+    platform: 'instagram',
     status: 'draft',
-    created_at: new Date().toISOString(),
+    scheduledAt: 'Oct 25',
+    scheduledTime: '01:00 PM',
+    createdAt: '2024-01-25',
+  },
+  {
+    id: '8',
+    title: 'Weekly Wrap-up Video',
+    content: 'Highlights from this week\'s activities...',
+    platform: 'facebook',
+    status: 'scheduled',
+    scheduledAt: 'Oct 27',
+    scheduledTime: '03:45 PM',
+    createdAt: '2024-01-26',
   },
 ]
 
-const statusColors = {
-  draft: 'secondary',
-  scheduled: 'warning',
-  published: 'success',
-} as const
+const platformConfig: Record<Platform, { icon: typeof Instagram; color: string; bgColor: string; name: string }> = {
+  instagram: { icon: Instagram, color: 'text-pink-600', bgColor: 'bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600', name: 'Instagram' },
+  twitter: { icon: Twitter, color: 'text-gray-900', bgColor: 'bg-black', name: 'Twitter / X' },
+  linkedin: { icon: Linkedin, color: 'text-blue-700', bgColor: 'bg-[#0077b5]', name: 'LinkedIn' },
+  youtube: { icon: Youtube, color: 'text-red-600', bgColor: 'bg-red-600', name: 'YouTube' },
+  facebook: { icon: Facebook, color: 'text-blue-600', bgColor: 'bg-[#1877f2]', name: 'Facebook' },
+}
 
-export default function MarketingPage() {
-  const [isFormOpen, setIsFormOpen] = useState(false)
-  const [selectedPost, setSelectedPost] = useState<MarketingPost | null>(null)
+const statusConfig: Record<PostStatus, { label: string; color: string }> = {
+  draft: { label: 'Draft', color: 'bg-gray-100 text-gray-600 border-gray-200' },
+  scheduled: { label: 'Scheduled', color: 'bg-indigo-50 text-indigo-600 border-indigo-200' },
+  published: { label: 'Published', color: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
+}
 
-  const scheduledPosts = mockPosts.filter((p) => p.status === 'scheduled')
-  const draftPosts = mockPosts.filter((p) => p.status === 'draft')
-  const publishedPosts = mockPosts.filter((p) => p.status === 'published')
+// Components
+function PlatformIcon({ platform, size = 'md' }: { platform: Platform; size?: 'sm' | 'md' | 'lg' }) {
+  const config = platformConfig[platform]
+  const Icon = config.icon
+  const sizeClasses = {
+    sm: 'w-6 h-6',
+    md: 'w-8 h-8',
+    lg: 'w-10 h-10',
+  }
+  const iconSizes = {
+    sm: 'h-3 w-3',
+    md: 'h-4 w-4',
+    lg: 'h-5 w-5',
+  }
+  return (
+    <div className={cn('rounded-full flex items-center justify-center text-white', config.bgColor, sizeClasses[size])}>
+      <Icon className={iconSizes[size]} />
+    </div>
+  )
+}
 
-  const handleEdit = (post: MarketingPost) => {
-    setSelectedPost(post)
-    setIsFormOpen(true)
+function StatusBadge({ status }: { status: PostStatus }) {
+  const config = statusConfig[status]
+  return (
+    <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border', config.color)}>
+      {config.label}
+    </span>
+  )
+}
+
+// Stats Card
+function StatCard({ icon: Icon, label, value, change, iconBg }: {
+  icon: typeof TrendingUp
+  label: string
+  value: string
+  change?: string
+  iconBg: string
+}) {
+  return (
+    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col gap-3 hover:border-indigo-200 transition-colors">
+      <div className="flex justify-between items-start">
+        <div className={cn('p-2.5 rounded-xl', iconBg)}>
+          <Icon className="h-5 w-5" />
+        </div>
+        {change && (
+          <span className="flex items-center text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">
+            <TrendingUp className="h-3 w-3 mr-1" />
+            {change}
+          </span>
+        )}
+      </div>
+      <div>
+        <p className="text-gray-500 text-sm font-medium mb-1">{label}</p>
+        <h3 className="text-2xl font-bold text-gray-900">{value}</h3>
+      </div>
+    </div>
+  )
+}
+
+// Create Post Modal
+function CreatePostModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>(['instagram'])
+  const [content, setContent] = useState('')
+  const [scheduleNow, setScheduleNow] = useState(false)
+
+  if (!isOpen) return null
+
+  const togglePlatform = (platform: Platform) => {
+    setSelectedPlatforms(prev =>
+      prev.includes(platform)
+        ? prev.filter(p => p !== platform)
+        : [...prev, platform]
+    )
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <PageHeader
-        title="Marketing"
-        description="Manage social media content and campaigns"
-        actions={
-          <Button onClick={() => setIsFormOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Post
-          </Button>
-        }
-      />
+    <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-[1100px] max-h-[90vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex justify-between items-center px-8 py-5 border-b border-gray-100 shrink-0">
+          <h2 className="text-gray-900 text-xl font-bold">Create New Post</h2>
+          <button
+            onClick={onClose}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-500"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
 
-      {/* Stats */}
-      <div className="grid gap-6 sm:grid-cols-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-gray-100">
-                <Calendar className="h-5 w-5 text-gray-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{scheduledPosts.length}</p>
-                <p className="text-sm text-gray-500">Scheduled</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-gray-100">
-                <Edit className="h-5 w-5 text-gray-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{draftPosts.length}</p>
-                <p className="text-sm text-gray-500">Drafts</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-emerald-50">
-                <Clock className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{publishedPosts.length}</p>
-                <p className="text-sm text-gray-500">Published</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-indigo-50">
-                <Instagram className="h-5 w-5 text-indigo-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">4</p>
-                <p className="text-sm text-gray-500">Platforms</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Scheduled Posts */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Scheduled Posts</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {scheduledPosts.length > 0 ? (
-              scheduledPosts.map((post) => {
-                const platform = platformIcons[post.platform as keyof typeof platformIcons]
-                const Icon = platform?.icon || Calendar
-                return (
-                  <div key={post.id} className="p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className={`p-1.5 rounded-lg ${platform?.color || 'bg-gray-100'}`}>
-                          <Icon className="h-4 w-4" />
-                        </div>
-                        <span className="text-sm font-medium capitalize">{post.platform}</span>
-                      </div>
-                      <Badge variant="warning">Scheduled</Badge>
-                    </div>
-                    <h4 className="font-medium text-gray-900 mb-1">{post.title}</h4>
-                    <p className="text-sm text-gray-500 line-clamp-2 mb-3">{post.content}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-400">
-                        {post.scheduled_at && formatDate(post.scheduled_at)}
+        {/* Content */}
+        <div className="flex flex-1 overflow-hidden flex-col lg:flex-row">
+          {/* Left: Editor */}
+          <div className="flex-1 overflow-y-auto p-6 lg:p-8 space-y-8">
+            {/* Platform Selector */}
+            <div className="space-y-3">
+              <label className="text-gray-900 text-sm font-semibold">Select Platforms</label>
+              <div className="flex gap-3 flex-wrap">
+                {(Object.keys(platformConfig) as Platform[]).map((platform) => {
+                  const config = platformConfig[platform]
+                  const isSelected = selectedPlatforms.includes(platform)
+                  return (
+                    <button
+                      key={platform}
+                      onClick={() => togglePlatform(platform)}
+                      className={cn(
+                        'group flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all',
+                        isSelected
+                          ? 'border-indigo-600 bg-indigo-50'
+                          : 'border-gray-200 hover:bg-gray-50'
+                      )}
+                    >
+                      <PlatformIcon platform={platform} size="sm" />
+                      <span className={cn('font-medium text-sm', isSelected ? 'text-indigo-600' : 'text-gray-700')}>
+                        {config.name}
                       </span>
-                      <Button size="sm" variant="ghost" onClick={() => handleEdit(post)}>
-                        Edit
-                      </Button>
-                    </div>
+                      {isSelected && <Check className="h-4 w-4 text-indigo-600" />}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Content Editor */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-end">
+                <label className="text-gray-900 text-sm font-semibold">Post Content</label>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-100 to-fuchsia-100 text-violet-700 hover:from-violet-200 hover:to-fuchsia-200 transition-colors text-xs font-medium">
+                  <Sparkles className="h-4 w-4" />
+                  Generate Caption
+                </button>
+              </div>
+              <div className="border border-gray-200 rounded-xl bg-gray-50 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-200 transition-all overflow-hidden">
+                <div className="flex items-center gap-1 p-2 border-b border-gray-200 bg-white">
+                  <button className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors">
+                    <Bold className="h-4 w-4" />
+                  </button>
+                  <button className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors">
+                    <Italic className="h-4 w-4" />
+                  </button>
+                  <div className="w-px h-5 bg-gray-200 mx-1" />
+                  <button className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors">
+                    <Link2 className="h-4 w-4" />
+                  </button>
+                  <button className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors">
+                    <Smile className="h-4 w-4" />
+                  </button>
+                  <div className="flex-1" />
+                  <span className="text-xs text-gray-400 font-medium px-2">{content.length} / 2200</span>
+                </div>
+                <Textarea
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="What's on your mind?"
+                  className="w-full bg-transparent p-4 min-h-[160px] border-none focus:ring-0 resize-none text-base"
+                />
+              </div>
+            </div>
+
+            {/* Media Upload */}
+            <div className="space-y-3">
+              <label className="text-gray-900 text-sm font-semibold">Media</label>
+              <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center gap-3 bg-gray-50 hover:bg-gray-100 hover:border-indigo-300 transition-colors cursor-pointer group">
+                <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
+                  <ImageIcon className="h-6 w-6" />
+                </div>
+                <div className="text-center">
+                  <p className="text-gray-900 font-medium text-sm">Drag & drop photos or videos here</p>
+                  <p className="text-gray-500 text-xs mt-1">or <span className="text-indigo-600 underline">Browse files</span></p>
+                </div>
+              </div>
+            </div>
+
+            {/* Scheduling */}
+            <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Send className="h-4 w-4 text-gray-500" />
+                  <h3 className="text-gray-900 font-semibold text-sm">Scheduling</h3>
+                </div>
+                <label className="inline-flex items-center cursor-pointer">
+                  <span className="mr-3 text-sm font-medium text-gray-600">Post Immediately</span>
+                  <button
+                    onClick={() => setScheduleNow(!scheduleNow)}
+                    className={cn(
+                      'relative w-11 h-6 rounded-full transition-colors',
+                      scheduleNow ? 'bg-indigo-600' : 'bg-gray-200'
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform',
+                        scheduleNow ? 'translate-x-5' : 'translate-x-0'
+                      )}
+                    />
+                  </button>
+                </label>
+              </div>
+              {!scheduleNow && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-medium">Date</label>
+                    <Input type="date" className="rounded-lg" />
                   </div>
-                )
-              })
-            ) : (
-              <p className="text-center py-8 text-gray-500">No scheduled posts</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Drafts */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Drafts</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {draftPosts.length > 0 ? (
-              draftPosts.map((post) => {
-                const platform = platformIcons[post.platform as keyof typeof platformIcons]
-                const Icon = platform?.icon || Calendar
-                return (
-                  <div key={post.id} className="p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className={`p-1.5 rounded-lg ${platform?.color || 'bg-gray-100'}`}>
-                          <Icon className="h-4 w-4" />
-                        </div>
-                        <span className="text-sm font-medium capitalize">{post.platform}</span>
-                      </div>
-                      <Badge variant="secondary">Draft</Badge>
-                    </div>
-                    <h4 className="font-medium text-gray-900 mb-1">{post.title}</h4>
-                    <p className="text-sm text-gray-500 line-clamp-2 mb-3">{post.content}</p>
-                    <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => handleEdit(post)}>
-                        Edit
-                      </Button>
-                      <Button size="sm">Schedule</Button>
-                    </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-medium">Time</label>
+                    <Input type="time" className="rounded-lg" />
                   </div>
-                )
-              })
-            ) : (
-              <p className="text-center py-8 text-gray-500">No drafts</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Create/Edit Post Dialog */}
-      <Dialog open={isFormOpen} onOpenChange={(open) => {
-        setIsFormOpen(open)
-        if (!open) setSelectedPost(null)
-      }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{selectedPost ? 'Edit Post' : 'Create Post'}</DialogTitle>
-            <DialogDescription>
-              {selectedPost ? 'Update your marketing post.' : 'Create a new social media post.'}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Platform</Label>
-              <Select defaultValue={selectedPost?.platform || ''}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select platform" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="instagram">Instagram</SelectItem>
-                  <SelectItem value="tiktok">TikTok</SelectItem>
-                  <SelectItem value="linkedin">LinkedIn</SelectItem>
-                  <SelectItem value="twitter">Twitter</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Title</Label>
-              <Input placeholder="Post title" defaultValue={selectedPost?.title || ''} />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Content</Label>
-              <Textarea
-                placeholder="Write your post content..."
-                rows={4}
-                defaultValue={selectedPost?.content || ''}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Schedule Date (optional)</Label>
-              <Input type="datetime-local" />
+                </div>
+              )}
+              <div className="mt-4 flex items-start gap-2 bg-emerald-50 p-3 rounded-lg border border-emerald-100">
+                <Info className="h-4 w-4 text-emerald-600 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-emerald-700">Best time to post</p>
+                  <p className="text-xs text-emerald-600/80 mt-0.5">Tomorrow at 10:30 AM will reach ~20% more followers.</p>
+                </div>
+                <button className="text-xs font-semibold text-emerald-700 underline ml-auto">Apply</button>
+              </div>
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsFormOpen(false)}>
-              Cancel
+          {/* Right: Preview */}
+          <div className="w-full lg:w-[380px] bg-gray-50 border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col shrink-0">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <span className="text-sm font-semibold text-gray-500">Live Preview</span>
+              <div className="flex bg-gray-200 p-1 rounded-lg">
+                <button className="p-1.5 rounded bg-white shadow-sm text-gray-800">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <rect x="5" y="2" width="14" height="20" rx="2" strokeWidth="2" />
+                  </svg>
+                </button>
+                <button className="p-1.5 rounded text-gray-500 hover:text-gray-800">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <rect x="2" y="4" width="20" height="16" rx="2" strokeWidth="2" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 p-6 flex items-center justify-center overflow-hidden">
+              <div className="w-[280px] bg-white rounded-[2rem] shadow-xl border-4 border-gray-200 overflow-hidden">
+                <div className="h-6 bg-white flex justify-between items-center px-4 text-[10px] font-bold text-gray-800">
+                  <span>9:41</span>
+                  <div className="flex gap-1">
+                    <div className="w-4 h-2 bg-gray-800 rounded-sm" />
+                  </div>
+                </div>
+                <div className="px-4 py-2 flex items-center justify-between border-b border-gray-100">
+                  <span className="font-bold text-sm text-gray-900">Instagram</span>
+                  <MoreHorizontal className="h-4 w-4 text-gray-900" />
+                </div>
+                <div className="bg-white">
+                  <div className="flex items-center gap-2 p-3">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-400 p-[2px]">
+                      <div className="w-full h-full rounded-full bg-white" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-gray-900">lcntships_workspace</span>
+                      <span className="text-[10px] text-gray-500">Suggested for you</span>
+                    </div>
+                  </div>
+                  <div className="aspect-square bg-gray-100 flex items-center justify-center">
+                    <ImageIcon className="h-12 w-12 text-gray-300" />
+                  </div>
+                  <div className="px-3 py-2 flex justify-between items-center">
+                    <div className="flex gap-3">
+                      <Heart className="h-5 w-5 text-gray-900" />
+                      <MessageCircle className="h-5 w-5 text-gray-900" />
+                      <Send className="h-5 w-5 text-gray-900" />
+                    </div>
+                  </div>
+                  <div className="px-3 pb-4">
+                    <p className="text-xs font-bold text-gray-900 mb-1">0 likes</p>
+                    <p className="text-xs text-gray-800">
+                      <span className="font-bold mr-1">lcntships_workspace</span>
+                      {content || 'Your caption will appear here...'}
+                    </p>
+                    <p className="text-[10px] text-gray-400 mt-2 uppercase">Just now</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="bg-white border-t border-gray-100 px-8 py-5 flex items-center justify-between shrink-0">
+          <div className="text-sm text-gray-500 hidden sm:block">
+            Auto-saved at {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </div>
+          <div className="flex gap-3 ml-auto">
+            <Button variant="outline" onClick={onClose} className="rounded-xl">
+              Save as Draft
             </Button>
-            <Button>
-              {selectedPost ? 'Save Changes' : 'Create Post'}
+            <Button className="rounded-xl shadow-lg shadow-indigo-200">
+              <Calendar className="h-4 w-4 mr-2" />
+              Schedule Post
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Post Detail Sidebar
+function PostDetailSidebar({ post, isOpen, onClose }: { post: MarketingPost | null; isOpen: boolean; onClose: () => void }) {
+  if (!isOpen || !post) return null
+
+  return (
+    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[520px] flex-col bg-white shadow-[-4px_0_24px_rgba(0,0,0,0.08)] rounded-l-2xl border-l border-gray-100">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-white/80 backdrop-blur-md sticky top-0 z-10 rounded-tl-2xl">
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold tracking-tight text-gray-900">Post Details</h2>
+          <StatusBadge status={post.status} />
+        </div>
+        <button
+          onClick={onClose}
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-500"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-8">
+        {/* Meta Info */}
+        <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between gap-4 border border-gray-100">
+          <div className="flex items-center gap-3">
+            <PlatformIcon platform={post.platform} size="lg" />
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-gray-900">{platformConfig[post.platform].name}</span>
+              <span className="text-xs text-gray-500">{post.status === 'published' ? 'Published' : 'Scheduled'}</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              {post.status === 'published' ? 'Published On' : 'Scheduled For'}
+            </span>
+            <span className="block text-sm font-medium text-gray-900">
+              {post.scheduledAt || post.publishedAt} at {post.scheduledTime}
+            </span>
+          </div>
+        </div>
+
+        {/* Content Preview */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Content Preview</h3>
+            <button className="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center gap-1 transition-colors">
+              View live post
+              <ExternalLink className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            <div className="p-5">
+              <h4 className="font-bold text-gray-900 mb-2">{post.title}</h4>
+              <p className="text-gray-600 text-sm leading-relaxed">{post.content}</p>
+            </div>
+            {post.image && (
+              <div className="px-5 pb-5">
+                <div className="aspect-video rounded-lg overflow-hidden bg-gray-100">
+                  <img src={post.image} alt={post.title} className="w-full h-full object-cover" />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Performance Metrics */}
+        {post.status === 'published' && post.engagement && (
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Performance</h3>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-indigo-50 rounded-xl p-4 flex flex-col items-center justify-center text-center border border-indigo-100 hover:-translate-y-1 transition-transform">
+                <Heart className="h-5 w-5 text-indigo-600 mb-2" />
+                <span className="text-2xl font-bold text-gray-900">{post.engagement.likes?.toLocaleString() || 0}</span>
+                <span className="text-xs font-medium text-gray-500 mt-1">Likes</span>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-4 flex flex-col items-center justify-center text-center border border-gray-100 hover:-translate-y-1 transition-transform">
+                <Repeat className="h-5 w-5 text-gray-400 mb-2" />
+                <span className="text-2xl font-bold text-gray-900">{post.engagement.shares?.toLocaleString() || 0}</span>
+                <span className="text-xs font-medium text-gray-500 mt-1">Shares</span>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-4 flex flex-col items-center justify-center text-center border border-gray-100 hover:-translate-y-1 transition-transform">
+                <MousePointer className="h-5 w-5 text-gray-400 mb-2" />
+                <span className="text-2xl font-bold text-gray-900">{post.engagement.clicks?.toLocaleString() || 0}</span>
+                <span className="text-xs font-medium text-gray-500 mt-1">Clicks</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Footer Actions */}
+      <div className="border-t border-gray-100 bg-white p-6 rounded-bl-2xl">
+        <div className="flex flex-col gap-3">
+          <Button className="w-full rounded-xl h-12">
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Post
+          </Button>
+          <div className="grid grid-cols-3 gap-3">
+            <Button variant="outline" size="sm" className="rounded-xl">
+              <Share2 className="h-4 w-4 mr-1" />
+              Share
+            </Button>
+            <Button variant="outline" size="sm" className="rounded-xl">
+              <Copy className="h-4 w-4 mr-1" />
+              Copy
+            </Button>
+            <Button variant="outline" size="sm" className="rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50">
+              <Trash2 className="h-4 w-4 mr-1" />
+              Delete
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// AI Content Assistant
+function AIContentAssistant({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const [topic, setTopic] = useState('')
+  const [contentType, setContentType] = useState('')
+  const [ideas, setIdeas] = useState([
+    { id: 1, content: 'Video tour of the new studio layout with team intro.', type: 'Reel / TikTok' },
+    { id: 2, content: '5 quick tips for better lighting in product photos.', type: 'Carousel' },
+    { id: 3, content: 'Interview clip with Sarah about her favorite project.', type: 'Story' },
+  ])
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="relative w-full max-w-[520px] bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100">
+        {/* Header */}
+        <div className="flex items-center justify-between px-8 py-6 border-b border-gray-50">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-100 text-indigo-600">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 tracking-tight">AI Content Ideas</h2>
+              <p className="text-xs text-gray-500 font-medium">lcntships Workspace</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="p-8 flex flex-col gap-8">
+          {/* Input Section */}
+          <div className="flex flex-col gap-6">
+            <div className="space-y-1">
+              <h3 className="text-gray-900 text-[17px] font-bold leading-tight">Generate post ideas based on...</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">Tell us your topic and let the AI draft engaging concepts for your calendar.</p>
+            </div>
+
+            <div className="space-y-5">
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Topic or Theme</label>
+                <Textarea
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  placeholder="e.g., Launching our Summer Sale for the new sneaker collection..."
+                  className="min-h-[96px] rounded-xl bg-gray-50 border-gray-200 focus:border-indigo-500 focus:ring-indigo-200"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Content Type</label>
+                <select
+                  value={contentType}
+                  onChange={(e) => setContentType(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-[15px] text-gray-900 focus:border-indigo-500 focus:ring-indigo-200"
+                >
+                  <option value="">Select content type</option>
+                  <option value="spotlight">Studio spotlight</option>
+                  <option value="bts">Behind the scenes</option>
+                  <option value="testimonial">Customer testimonial</option>
+                  <option value="tips">Tips & tricks</option>
+                </select>
+              </div>
+            </div>
+
+            <Button className="w-full rounded-xl h-12 shadow-lg shadow-indigo-200">
+              <Sparkles className="h-4 w-4 mr-2" />
+              Generate Ideas
+            </Button>
+          </div>
+
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-100" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-white px-3 text-xs font-medium text-gray-400">Results</span>
+            </div>
+          </div>
+
+          {/* Results */}
+          <div className="flex flex-col gap-4">
+            {ideas.map((idea, index) => (
+              <div
+                key={idea.id}
+                className="group flex flex-row items-start gap-4 rounded-xl border border-gray-100 bg-white p-4 hover:border-indigo-300 hover:shadow-md transition-all duration-200"
+              >
+                <div className="flex-shrink-0 mt-0.5">
+                  <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-xs">
+                    {String(index + 1).padStart(2, '0')}
+                  </div>
+                </div>
+                <div className="flex flex-col flex-grow gap-3">
+                  <p className="text-[15px] text-gray-700 font-medium leading-relaxed">{idea.content}</p>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-xs text-gray-400 font-medium">{idea.type}</span>
+                    <Button size="sm" variant="ghost" className="text-indigo-600 hover:text-white hover:bg-indigo-600 rounded-lg">
+                      <Plus className="h-4 w-4 mr-1" />
+                      Use This
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// List View Component
+function ListView({ posts, onPostClick }: { posts: MarketingPost[]; onPostClick: (post: MarketingPost) => void }) {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-gray-50/50 border-b border-gray-100">
+              <th className="py-4 px-6 text-xs uppercase tracking-wider text-gray-500 font-semibold w-32">Status</th>
+              <th className="py-4 px-6 text-xs uppercase tracking-wider text-gray-500 font-semibold w-40">Platform</th>
+              <th className="py-4 px-6 text-xs uppercase tracking-wider text-gray-500 font-semibold min-w-[300px]">Content Preview</th>
+              <th className="py-4 px-6 text-xs uppercase tracking-wider text-gray-500 font-semibold w-48">Scheduled</th>
+              <th className="py-4 px-6 text-xs uppercase tracking-wider text-gray-500 font-semibold w-40">Engagement</th>
+              <th className="py-4 px-6 text-xs uppercase tracking-wider text-gray-500 font-semibold text-right w-24">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {posts.map((post) => (
+              <tr
+                key={post.id}
+                onClick={() => onPostClick(post)}
+                className="group hover:bg-indigo-50/50 transition-colors cursor-pointer"
+              >
+                <td className="py-4 px-6 align-middle">
+                  <StatusBadge status={post.status} />
+                </td>
+                <td className="py-4 px-6 align-middle">
+                  <div className="flex items-center gap-2">
+                    <PlatformIcon platform={post.platform} />
+                    <span className="text-sm font-medium text-gray-700">{platformConfig[post.platform].name}</span>
+                  </div>
+                </td>
+                <td className="py-4 px-6 align-middle">
+                  <div className="flex items-center gap-4">
+                    {post.image ? (
+                      <div
+                        className="w-12 h-12 shrink-0 rounded-lg bg-cover bg-center border border-gray-200"
+                        style={{ backgroundImage: `url(${post.image})` }}
+                      />
+                    ) : (
+                      <div className="w-12 h-12 shrink-0 rounded-lg bg-gray-100 flex items-center justify-center border border-gray-200">
+                        <FileEdit className="h-5 w-5 text-gray-400" />
+                      </div>
+                    )}
+                    <div className="flex flex-col max-w-[240px]">
+                      <p className="text-sm font-medium text-gray-900 truncate">{post.title}</p>
+                      <p className="text-xs text-gray-500 truncate">{post.content}</p>
+                    </div>
+                  </div>
+                </td>
+                <td className="py-4 px-6 align-middle">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-900">{post.scheduledAt || post.publishedAt}</span>
+                    <span className="text-xs text-gray-500">{post.scheduledTime}</span>
+                  </div>
+                </td>
+                <td className="py-4 px-6 align-middle">
+                  {post.engagement?.likes ? (
+                    <div className="flex items-center gap-1.5 text-gray-700">
+                      <Heart className="h-4 w-4 text-pink-500" />
+                      <span className="text-sm font-semibold">{post.engagement.likes.toLocaleString()}</span>
+                    </div>
+                  ) : post.engagement?.views ? (
+                    <div className="flex items-center gap-1.5 text-gray-700">
+                      <Eye className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-semibold">{post.engagement.views.toLocaleString()}</span>
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 text-sm">-</span>
+                  )}
+                </td>
+                <td className="py-4 px-6 align-middle text-right">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); }}
+                    className="invisible group-hover:visible w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-gray-200 text-gray-500 transition-all"
+                  >
+                    <MoreHorizontal className="h-5 w-5" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex items-center justify-between px-6 py-4 bg-gray-50/50 border-t border-gray-100">
+        <span className="text-sm text-gray-500">
+          Showing <span className="font-medium text-gray-900">1-{posts.length}</span> of <span className="font-medium text-gray-900">{posts.length}</span> posts
+        </span>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" disabled className="rounded-lg">Previous</Button>
+          <Button variant="outline" size="sm" className="rounded-lg">Next</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Calendar View Component
+function CalendarView({ posts, onPostClick }: { posts: MarketingPost[]; onPostClick: (post: MarketingPost) => void }) {
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const dates = [23, 24, 25, 26, 27, 28, 29]
+  const timeSlots = [
+    { label: 'Morning', icon: Sunrise, color: 'text-orange-400' },
+    { label: 'Afternoon', icon: Sun, color: 'text-yellow-500' },
+    { label: 'Evening', icon: Moon, color: 'text-indigo-400' },
+  ]
+
+  const getPostForSlot = (date: number, slot: string): MarketingPost | undefined => {
+    const slotTimes: Record<string, string[]> = {
+      Morning: ['08:00 AM', '08:30 AM', '09:00 AM', '10:00 AM', '11:00 AM'],
+      Afternoon: ['12:00 PM', '01:00 PM', '02:00 PM', '02:15 PM', '03:00 PM', '03:45 PM'],
+      Evening: ['05:00 PM', '06:00 PM', '07:00 PM', '08:00 PM'],
+    }
+    return posts.find(p => {
+      const postDate = parseInt(p.scheduledAt?.split(' ')[1] || '0')
+      return postDate === date && slotTimes[slot]?.some(t => p.scheduledTime?.includes(t.split(' ')[0]))
+    })
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
+      {/* Calendar Header */}
+      <div className="grid grid-cols-8 border-b border-gray-200">
+        <div className="p-4 border-r border-gray-200 bg-gray-50/50" />
+        {days.map((day, index) => (
+          <div
+            key={day}
+            className={cn(
+              'p-4 text-center border-r border-gray-100 last:border-r-0',
+              index === 1 && 'bg-indigo-50 relative'
+            )}
+          >
+            {index === 1 && <div className="absolute top-0 left-0 w-full h-1 bg-indigo-600" />}
+            <span className={cn('block text-xs font-medium uppercase', index === 1 ? 'text-indigo-600 font-bold' : 'text-gray-500')}>
+              {day}
+            </span>
+            <span className={cn('block text-lg font-bold', index === 1 ? 'text-indigo-600' : 'text-gray-900')}>
+              {dates[index]}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Calendar Body */}
+      <div className="flex-1 overflow-y-auto">
+        {timeSlots.map(({ label, icon: Icon, color }) => (
+          <div key={label} className="grid grid-cols-8 min-h-[160px] border-b border-gray-100 last:border-b-0">
+            <div className="p-4 border-r border-gray-200 bg-gray-50/50 flex flex-col justify-center items-center">
+              <Icon className={cn('h-5 w-5 mb-1', color)} />
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">{label}</span>
+            </div>
+            {dates.map((date, dayIndex) => {
+              const post = getPostForSlot(date, label)
+              const isToday = dayIndex === 1
+              const isWeekend = dayIndex >= 5
+              return (
+                <div
+                  key={`${date}-${label}`}
+                  className={cn(
+                    'border-r border-gray-100 last:border-r-0 p-2 transition-colors',
+                    isToday && 'bg-indigo-50 hover:bg-indigo-100',
+                    isWeekend && !isToday && 'bg-gray-50/30',
+                    !isToday && !isWeekend && 'hover:bg-gray-50'
+                  )}
+                >
+                  {post ? (
+                    <div
+                      onClick={() => onPostClick(post)}
+                      className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer h-full flex flex-col justify-between min-h-[110px]"
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <PlatformIcon platform={post.platform} size="sm" />
+                        <span className={cn(
+                          'w-2 h-2 rounded-full',
+                          post.status === 'published' && 'bg-emerald-500',
+                          post.status === 'scheduled' && 'bg-emerald-500',
+                          post.status === 'draft' && 'bg-gray-300'
+                        )} />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <h4 className="text-xs font-bold text-gray-800 line-clamp-2 leading-snug">{post.title}</h4>
+                        <span className="text-[10px] font-medium text-gray-400">{post.scheduledTime}</span>
+                      </div>
+                    </div>
+                  ) : isToday && label === 'Evening' ? (
+                    <button className="w-full h-full rounded-xl border-2 border-dashed border-indigo-300 flex flex-col items-center justify-center gap-1 text-indigo-500 hover:bg-white/50 hover:border-indigo-500 hover:text-indigo-600 transition-all group">
+                      <Plus className="h-6 w-6 group-hover:scale-110 transition-transform" />
+                      <span className="text-xs font-bold">Schedule</span>
+                    </button>
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Drafts View Component
+function DraftsView({ posts, onPostClick }: { posts: MarketingPost[]; onPostClick: (post: MarketingPost) => void }) {
+  const drafts = posts.filter(p => p.status === 'draft')
+  const [selectedPlatform, setSelectedPlatform] = useState<Platform | 'all'>('all')
+
+  const filteredDrafts = selectedPlatform === 'all' ? drafts : drafts.filter(p => p.platform === selectedPlatform)
+
+  return (
+    <div className="space-y-6">
+      {/* Filters */}
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        <button
+          onClick={() => setSelectedPlatform('all')}
+          className={cn(
+            'flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-xl pl-3 pr-4 transition-colors',
+            selectedPlatform === 'all'
+              ? 'bg-gray-900 text-white'
+              : 'bg-white border border-gray-200 text-gray-700 hover:border-indigo-300 hover:text-indigo-600'
+          )}
+        >
+          <LayoutGrid className="h-4 w-4" />
+          <span className="text-sm font-medium">All Platforms</span>
+        </button>
+        {(Object.keys(platformConfig) as Platform[]).slice(0, 3).map((platform) => {
+          const config = platformConfig[platform]
+          const Icon = config.icon
+          return (
+            <button
+              key={platform}
+              onClick={() => setSelectedPlatform(platform)}
+              className={cn(
+                'flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-xl pl-3 pr-4 transition-colors',
+                selectedPlatform === platform
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-white border border-gray-200 text-gray-700 hover:border-indigo-300 hover:text-indigo-600'
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              <span className="text-sm font-medium">{config.name}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredDrafts.map((post) => (
+          <div
+            key={post.id}
+            onClick={() => onPostClick(post)}
+            className="group flex flex-col bg-white rounded-2xl p-3 shadow-sm hover:shadow-xl hover:shadow-indigo-100 border border-transparent hover:border-indigo-200 transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+          >
+            <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-gray-100 mb-3">
+              {post.image ? (
+                <div
+                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+                  style={{ backgroundImage: `url(${post.image})` }}
+                />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center p-6">
+                  <div className="text-center text-white">
+                    <FileEdit className="h-10 w-10 mx-auto mb-2 opacity-80" />
+                    <p className="font-bold text-lg leading-snug">{post.title}</p>
+                  </div>
+                </div>
+              )}
+              <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5 shadow-sm">
+                <PlatformIcon platform={post.platform} size="sm" />
+                <span className="text-xs font-bold text-gray-800">{platformConfig[post.platform].name}</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 px-1 pb-1">
+              <div className="flex justify-between items-start">
+                <h3 className="text-gray-900 font-bold text-lg leading-tight truncate">{post.title}</h3>
+                <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-md shrink-0 ml-2">Draft</span>
+              </div>
+              <p className="text-gray-500 text-sm line-clamp-2 leading-relaxed">{post.content}</p>
+              <div className="mt-2 flex gap-2 pt-2 border-t border-gray-100">
+                <Button size="sm" variant="ghost" className="flex-1 rounded-lg bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white">
+                  Edit
+                </Button>
+                <Button size="sm" variant="ghost" className="rounded-lg hover:bg-red-50 hover:text-red-500 text-gray-400">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {/* Create New Draft Card */}
+        <div className="group flex flex-col items-center justify-center bg-gray-50 rounded-2xl p-6 border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-white transition-all cursor-pointer min-h-[340px]">
+          <div className="h-16 w-16 rounded-full bg-white flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
+            <Plus className="h-8 w-8 text-indigo-600" />
+          </div>
+          <h3 className="text-gray-900 font-bold text-lg text-center">Create New Draft</h3>
+          <p className="text-gray-500 text-sm text-center mt-1">Start writing for any platform</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Main Component
+export default function MarketingPage() {
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false)
+  const [selectedPost, setSelectedPost] = useState<MarketingPost | null>(null)
+  const [isDetailSidebarOpen, setIsDetailSidebarOpen] = useState(false)
+
+  const handlePostClick = (post: MarketingPost) => {
+    setSelectedPost(post)
+    setIsDetailSidebarOpen(true)
+  }
+
+  const scheduledCount = mockPosts.filter(p => p.status === 'scheduled').length
+  const draftCount = mockPosts.filter(p => p.status === 'draft').length
+  const publishedCount = mockPosts.filter(p => p.status === 'published').length
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Marketing</h1>
+          <p className="text-gray-500 mt-1">Manage social media content and campaigns</p>
+        </div>
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setIsAIAssistantOpen(true)}
+            className="rounded-xl"
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            AI Ideas
+          </Button>
+          <Button onClick={() => setIsCreateModalOpen(true)} className="rounded-xl shadow-lg shadow-indigo-200">
+            <Plus className="h-4 w-4 mr-2" />
+            Create Post
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <StatCard
+          icon={BarChart3}
+          label="Total Reach"
+          value="12.4k"
+          change="+12%"
+          iconBg="bg-blue-50 text-blue-600"
+        />
+        <StatCard
+          icon={Send}
+          label="Scheduled"
+          value={`${scheduledCount} Posts`}
+          iconBg="bg-purple-50 text-purple-600"
+        />
+        <StatCard
+          icon={Heart}
+          label="Engagement"
+          value="4.2%"
+          change="+0.8%"
+          iconBg="bg-orange-50 text-orange-600"
+        />
+        <StatCard
+          icon={FileEdit}
+          label="Pending Approval"
+          value={`${draftCount} drafts`}
+          iconBg="bg-pink-50 text-pink-600"
+        />
+      </div>
+
+      {/* View Controls */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-1">
+        <div className="flex gap-8">
+          <button
+            onClick={() => setViewMode('list')}
+            className={cn(
+              'flex items-center gap-2 border-b-[3px] pb-3 px-1 transition-colors',
+              viewMode === 'list'
+                ? 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            )}
+          >
+            <List className="h-5 w-5" />
+            <span className="text-sm font-bold">List</span>
+          </button>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={cn(
+              'flex items-center gap-2 border-b-[3px] pb-3 px-1 transition-colors',
+              viewMode === 'calendar'
+                ? 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            )}
+          >
+            <CalendarDays className="h-5 w-5" />
+            <span className="text-sm font-bold">Calendar</span>
+          </button>
+          <button
+            onClick={() => setViewMode('drafts')}
+            className={cn(
+              'flex items-center gap-2 border-b-[3px] pb-3 px-1 transition-colors',
+              viewMode === 'drafts'
+                ? 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            )}
+          >
+            <FileEdit className="h-5 w-5" />
+            <span className="text-sm font-bold">Drafts ({draftCount})</span>
+          </button>
+        </div>
+
+        {viewMode === 'list' && (
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="outline" size="sm" className="rounded-lg">
+              <Filter className="h-4 w-4 mr-2" />
+              Platform
+            </Button>
+            <Button variant="outline" size="sm" className="rounded-lg">
+              <Filter className="h-4 w-4 mr-2" />
+              Status
+            </Button>
+            <Button variant="outline" size="sm" className="rounded-lg">
+              <Calendar className="h-4 w-4 mr-2" />
+              Date Range
+            </Button>
+          </div>
+        )}
+
+        {viewMode === 'calendar' && (
+          <div className="flex items-center gap-4 bg-white p-1.5 rounded-xl shadow-sm border border-gray-100">
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button className="px-4 py-1.5 rounded-md text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">Day</button>
+              <button className="px-4 py-1.5 rounded-md text-sm font-bold bg-white text-gray-900 shadow-sm">Week</button>
+              <button className="px-4 py-1.5 rounded-md text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">Month</button>
+            </div>
+            <div className="h-6 w-px bg-gray-200 mx-1" />
+            <div className="flex items-center gap-1 px-2">
+              <button className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors">
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button className="px-2 text-sm font-semibold text-gray-900">Today</button>
+              <button className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors">
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      {viewMode === 'list' && <ListView posts={mockPosts} onPostClick={handlePostClick} />}
+      {viewMode === 'calendar' && <CalendarView posts={mockPosts} onPostClick={handlePostClick} />}
+      {viewMode === 'drafts' && <DraftsView posts={mockPosts} onPostClick={handlePostClick} />}
+
+      {/* Modals & Sidebars */}
+      <CreatePostModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} />
+      <AIContentAssistant isOpen={isAIAssistantOpen} onClose={() => setIsAIAssistantOpen(false)} />
+      <PostDetailSidebar
+        post={selectedPost}
+        isOpen={isDetailSidebarOpen}
+        onClose={() => {
+          setIsDetailSidebarOpen(false)
+          setSelectedPost(null)
+        }}
+      />
+
+      {/* Backdrop for sidebar */}
+      {isDetailSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-gray-900/20 z-40"
+          onClick={() => {
+            setIsDetailSidebarOpen(false)
+            setSelectedPost(null)
+          }}
+        />
+      )}
     </div>
   )
 }
