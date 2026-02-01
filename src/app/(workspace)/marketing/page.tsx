@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Plus,
   Instagram,
@@ -45,128 +45,20 @@ import {
   Info,
   Check,
   Facebook,
+  Loader2,
+  Inbox,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { marketingApi, type MarketingPost } from '@/lib/supabase'
 
 // Types
 type ViewMode = 'list' | 'calendar' | 'drafts'
 type PostStatus = 'draft' | 'scheduled' | 'published'
 type Platform = 'instagram' | 'twitter' | 'linkedin' | 'youtube' | 'facebook'
-
-interface MarketingPost {
-  id: string
-  title: string
-  content: string
-  platform: Platform
-  status: PostStatus
-  scheduledAt?: string
-  scheduledTime?: string
-  publishedAt?: string
-  engagement?: {
-    likes?: number
-    shares?: number
-    clicks?: number
-    comments?: number
-    reach?: number
-    views?: number
-  }
-  image?: string
-  createdAt: string
-}
-
-// Mock data
-const mockPosts: MarketingPost[] = [
-  {
-    id: '1',
-    title: 'Morning vibes at the office ☕✨',
-    content: 'Starting the day right with some fresh brew...',
-    platform: 'instagram',
-    status: 'published',
-    publishedAt: 'Oct 24',
-    scheduledTime: '10:00 AM',
-    engagement: { likes: 1200, shares: 42, clicks: 1200 },
-    image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400',
-    createdAt: '2024-01-20',
-  },
-  {
-    id: '2',
-    title: 'Big announcement coming soon! 🚀',
-    content: '#marketing #growth #startup life',
-    platform: 'twitter',
-    status: 'scheduled',
-    scheduledAt: 'Oct 25',
-    scheduledTime: '02:00 PM',
-    createdAt: '2024-01-21',
-  },
-  {
-    id: '3',
-    title: 'Q3 Report Analysis',
-    content: 'Breaking down the key metrics from last quarter...',
-    platform: 'linkedin',
-    status: 'draft',
-    scheduledAt: 'Oct 26',
-    scheduledTime: '09:00 AM',
-    image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400',
-    createdAt: '2024-01-22',
-  },
-  {
-    id: '4',
-    title: 'Weekly Roundup Vlog #42',
-    content: 'Everything you missed this week in tech...',
-    platform: 'youtube',
-    status: 'published',
-    publishedAt: 'Oct 22',
-    scheduledTime: '05:00 PM',
-    engagement: { views: 3400, likes: 245, comments: 32 },
-    image: 'https://images.unsplash.com/photo-1611162616475-46b635cb6868?w=400',
-    createdAt: '2024-01-19',
-  },
-  {
-    id: '5',
-    title: 'Product Launch Teaser',
-    content: 'Excited to share our latest update! We\'ve been working hard...',
-    platform: 'instagram',
-    status: 'scheduled',
-    scheduledAt: 'Oct 24',
-    scheduledTime: '09:00 AM',
-    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400',
-    createdAt: '2024-01-23',
-  },
-  {
-    id: '6',
-    title: 'Thread: 5 Tips for Growth',
-    content: 'Let me share what I learned about growing a startup...',
-    platform: 'twitter',
-    status: 'scheduled',
-    scheduledAt: 'Oct 23',
-    scheduledTime: '02:15 PM',
-    createdAt: '2024-01-24',
-  },
-  {
-    id: '7',
-    title: 'Carousel: Behind the scenes',
-    content: 'Take a peek at our creative process...',
-    platform: 'instagram',
-    status: 'draft',
-    scheduledAt: 'Oct 25',
-    scheduledTime: '01:00 PM',
-    createdAt: '2024-01-25',
-  },
-  {
-    id: '8',
-    title: 'Weekly Wrap-up Video',
-    content: 'Highlights from this week\'s activities...',
-    platform: 'facebook',
-    status: 'scheduled',
-    scheduledAt: 'Oct 27',
-    scheduledTime: '03:45 PM',
-    createdAt: '2024-01-26',
-  },
-]
 
 const platformConfig: Record<Platform, { icon: typeof Instagram; color: string; bgColor: string; name: string }> = {
   instagram: { icon: Instagram, color: 'text-pink-600', bgColor: 'bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600', name: 'Instagram' },
@@ -183,8 +75,9 @@ const statusConfig: Record<PostStatus, { label: string; color: string }> = {
 }
 
 // Components
-function PlatformIcon({ platform, size = 'md' }: { platform: Platform; size?: 'sm' | 'md' | 'lg' }) {
-  const config = platformConfig[platform]
+function PlatformIcon({ platform, size = 'md' }: { platform: string; size?: 'sm' | 'md' | 'lg' }) {
+  const config = platformConfig[platform as Platform]
+  if (!config) return null
   const Icon = config.icon
   const sizeClasses = {
     sm: 'w-6 h-6',
@@ -203,8 +96,8 @@ function PlatformIcon({ platform, size = 'md' }: { platform: Platform; size?: 's
   )
 }
 
-function StatusBadge({ status }: { status: PostStatus }) {
-  const config = statusConfig[status]
+function StatusBadge({ status }: { status: string }) {
+  const config = statusConfig[status as PostStatus] || { label: status, color: 'bg-gray-100 text-gray-600 border-gray-200' }
   return (
     <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border', config.color)}>
       {config.label}
@@ -510,9 +403,9 @@ function PostDetailSidebar({ post, isOpen, onClose }: { post: MarketingPost | nu
         {/* Meta Info */}
         <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between gap-4 border border-gray-100">
           <div className="flex items-center gap-3">
-            <PlatformIcon platform={post.platform} size="lg" />
+            <PlatformIcon platform={post.platform || ''} size="lg" />
             <div className="flex flex-col">
-              <span className="text-sm font-semibold text-gray-900">{platformConfig[post.platform].name}</span>
+              <span className="text-sm font-semibold text-gray-900">{platformConfig[post.platform as Platform]?.name || post.platform || 'Unknown'}</span>
               <span className="text-xs text-gray-500">{post.status === 'published' ? 'Published' : 'Scheduled'}</span>
             </div>
           </div>
@@ -521,7 +414,7 @@ function PostDetailSidebar({ post, isOpen, onClose }: { post: MarketingPost | nu
               {post.status === 'published' ? 'Published On' : 'Scheduled For'}
             </span>
             <span className="block text-sm font-medium text-gray-900">
-              {post.scheduledAt || post.publishedAt} at {post.scheduledTime}
+              {post.published_at ? new Date(post.published_at).toLocaleDateString() : post.scheduled_at ? new Date(post.scheduled_at).toLocaleDateString() : '-'}
             </span>
           </div>
         </div>
@@ -540,39 +433,8 @@ function PostDetailSidebar({ post, isOpen, onClose }: { post: MarketingPost | nu
               <h4 className="font-bold text-gray-900 mb-2">{post.title}</h4>
               <p className="text-gray-600 text-sm leading-relaxed">{post.content}</p>
             </div>
-            {post.image && (
-              <div className="px-5 pb-5">
-                <div className="aspect-video rounded-lg overflow-hidden bg-gray-100">
-                  <img src={post.image} alt={post.title} className="w-full h-full object-cover" />
-                </div>
-              </div>
-            )}
           </div>
         </div>
-
-        {/* Performance Metrics */}
-        {post.status === 'published' && post.engagement && (
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Performance</h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-indigo-50 rounded-xl p-4 flex flex-col items-center justify-center text-center border border-indigo-100 hover:-translate-y-1 transition-transform">
-                <Heart className="h-5 w-5 text-indigo-600 mb-2" />
-                <span className="text-2xl font-bold text-gray-900">{post.engagement.likes?.toLocaleString() || 0}</span>
-                <span className="text-xs font-medium text-gray-500 mt-1">Likes</span>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-4 flex flex-col items-center justify-center text-center border border-gray-100 hover:-translate-y-1 transition-transform">
-                <Repeat className="h-5 w-5 text-gray-400 mb-2" />
-                <span className="text-2xl font-bold text-gray-900">{post.engagement.shares?.toLocaleString() || 0}</span>
-                <span className="text-xs font-medium text-gray-500 mt-1">Shares</span>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-4 flex flex-col items-center justify-center text-center border border-gray-100 hover:-translate-y-1 transition-transform">
-                <MousePointer className="h-5 w-5 text-gray-400 mb-2" />
-                <span className="text-2xl font-bold text-gray-900">{post.engagement.clicks?.toLocaleString() || 0}</span>
-                <span className="text-xs font-medium text-gray-500 mt-1">Clicks</span>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Footer Actions */}
@@ -729,8 +591,7 @@ function ListView({ posts, onPostClick }: { posts: MarketingPost[]; onPostClick:
               <th className="py-4 px-6 text-xs uppercase tracking-wider text-gray-500 font-semibold w-32">Status</th>
               <th className="py-4 px-6 text-xs uppercase tracking-wider text-gray-500 font-semibold w-40">Platform</th>
               <th className="py-4 px-6 text-xs uppercase tracking-wider text-gray-500 font-semibold min-w-[300px]">Content Preview</th>
-              <th className="py-4 px-6 text-xs uppercase tracking-wider text-gray-500 font-semibold w-48">Scheduled</th>
-              <th className="py-4 px-6 text-xs uppercase tracking-wider text-gray-500 font-semibold w-40">Engagement</th>
+              <th className="py-4 px-6 text-xs uppercase tracking-wider text-gray-500 font-semibold w-48">Date</th>
               <th className="py-4 px-6 text-xs uppercase tracking-wider text-gray-500 font-semibold text-right w-24">Actions</th>
             </tr>
           </thead>
@@ -746,22 +607,15 @@ function ListView({ posts, onPostClick }: { posts: MarketingPost[]; onPostClick:
                 </td>
                 <td className="py-4 px-6 align-middle">
                   <div className="flex items-center gap-2">
-                    <PlatformIcon platform={post.platform} />
-                    <span className="text-sm font-medium text-gray-700">{platformConfig[post.platform].name}</span>
+                    <PlatformIcon platform={post.platform || ''} />
+                    <span className="text-sm font-medium text-gray-700">{platformConfig[post.platform as Platform]?.name || post.platform || 'Unknown'}</span>
                   </div>
                 </td>
                 <td className="py-4 px-6 align-middle">
                   <div className="flex items-center gap-4">
-                    {post.image ? (
-                      <div
-                        className="w-12 h-12 shrink-0 rounded-lg bg-cover bg-center border border-gray-200"
-                        style={{ backgroundImage: `url(${post.image})` }}
-                      />
-                    ) : (
-                      <div className="w-12 h-12 shrink-0 rounded-lg bg-gray-100 flex items-center justify-center border border-gray-200">
-                        <FileEdit className="h-5 w-5 text-gray-400" />
-                      </div>
-                    )}
+                    <div className="w-12 h-12 shrink-0 rounded-lg bg-gray-100 flex items-center justify-center border border-gray-200">
+                      <FileEdit className="h-5 w-5 text-gray-400" />
+                    </div>
                     <div className="flex flex-col max-w-[240px]">
                       <p className="text-sm font-medium text-gray-900 truncate">{post.title}</p>
                       <p className="text-xs text-gray-500 truncate">{post.content}</p>
@@ -770,24 +624,13 @@ function ListView({ posts, onPostClick }: { posts: MarketingPost[]; onPostClick:
                 </td>
                 <td className="py-4 px-6 align-middle">
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium text-gray-900">{post.scheduledAt || post.publishedAt}</span>
-                    <span className="text-xs text-gray-500">{post.scheduledTime}</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {post.scheduled_at ? new Date(post.scheduled_at).toLocaleDateString() : post.published_at ? new Date(post.published_at).toLocaleDateString() : '-'}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {post.scheduled_at ? new Date(post.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                    </span>
                   </div>
-                </td>
-                <td className="py-4 px-6 align-middle">
-                  {post.engagement?.likes ? (
-                    <div className="flex items-center gap-1.5 text-gray-700">
-                      <Heart className="h-4 w-4 text-pink-500" />
-                      <span className="text-sm font-semibold">{post.engagement.likes.toLocaleString()}</span>
-                    </div>
-                  ) : post.engagement?.views ? (
-                    <div className="flex items-center gap-1.5 text-gray-700">
-                      <Eye className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-semibold">{post.engagement.views.toLocaleString()}</span>
-                    </div>
-                  ) : (
-                    <span className="text-gray-400 text-sm">-</span>
-                  )}
                 </td>
                 <td className="py-4 px-6 align-middle text-right">
                   <button
@@ -826,14 +669,18 @@ function CalendarView({ posts, onPostClick }: { posts: MarketingPost[]; onPostCl
   ]
 
   const getPostForSlot = (date: number, slot: string): MarketingPost | undefined => {
-    const slotTimes: Record<string, string[]> = {
-      Morning: ['08:00 AM', '08:30 AM', '09:00 AM', '10:00 AM', '11:00 AM'],
-      Afternoon: ['12:00 PM', '01:00 PM', '02:00 PM', '02:15 PM', '03:00 PM', '03:45 PM'],
-      Evening: ['05:00 PM', '06:00 PM', '07:00 PM', '08:00 PM'],
+    const slotHours: Record<string, [number, number]> = {
+      Morning: [6, 12],
+      Afternoon: [12, 17],
+      Evening: [17, 24],
     }
     return posts.find(p => {
-      const postDate = parseInt(p.scheduledAt?.split(' ')[1] || '0')
-      return postDate === date && slotTimes[slot]?.some(t => p.scheduledTime?.includes(t.split(' ')[0]))
+      if (!p.scheduled_at) return false
+      const d = new Date(p.scheduled_at)
+      const postDate = d.getDate()
+      const postHour = d.getHours()
+      const [start, end] = slotHours[slot] || [0, 0]
+      return postDate === date && postHour >= start && postHour < end
     })
   }
 
@@ -889,7 +736,7 @@ function CalendarView({ posts, onPostClick }: { posts: MarketingPost[]; onPostCl
                       className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer h-full flex flex-col justify-between min-h-[110px]"
                     >
                       <div className="flex justify-between items-start mb-2">
-                        <PlatformIcon platform={post.platform} size="sm" />
+                        <PlatformIcon platform={post.platform || ''} size="sm" />
                         <span className={cn(
                           'w-2 h-2 rounded-full',
                           post.status === 'published' && 'bg-emerald-500',
@@ -899,7 +746,9 @@ function CalendarView({ posts, onPostClick }: { posts: MarketingPost[]; onPostCl
                       </div>
                       <div className="flex flex-col gap-1">
                         <h4 className="text-xs font-bold text-gray-800 line-clamp-2 leading-snug">{post.title}</h4>
-                        <span className="text-[10px] font-medium text-gray-400">{post.scheduledTime}</span>
+                        <span className="text-[10px] font-medium text-gray-400">
+                          {post.scheduled_at ? new Date(post.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                        </span>
                       </div>
                     </div>
                   ) : isToday && label === 'Evening' ? (
@@ -971,22 +820,15 @@ function DraftsView({ posts, onPostClick }: { posts: MarketingPost[]; onPostClic
             className="group flex flex-col bg-white rounded-2xl p-3 shadow-sm hover:shadow-xl hover:shadow-indigo-100 border border-transparent hover:border-indigo-200 transition-all duration-300 hover:-translate-y-1 cursor-pointer"
           >
             <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-gray-100 mb-3">
-              {post.image ? (
-                <div
-                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-                  style={{ backgroundImage: `url(${post.image})` }}
-                />
-              ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center p-6">
-                  <div className="text-center text-white">
-                    <FileEdit className="h-10 w-10 mx-auto mb-2 opacity-80" />
-                    <p className="font-bold text-lg leading-snug">{post.title}</p>
-                  </div>
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center p-6">
+                <div className="text-center text-white">
+                  <FileEdit className="h-10 w-10 mx-auto mb-2 opacity-80" />
+                  <p className="font-bold text-lg leading-snug">{post.title}</p>
                 </div>
-              )}
+              </div>
               <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1.5 shadow-sm">
-                <PlatformIcon platform={post.platform} size="sm" />
-                <span className="text-xs font-bold text-gray-800">{platformConfig[post.platform].name}</span>
+                <PlatformIcon platform={post.platform || ''} size="sm" />
+                <span className="text-xs font-bold text-gray-800">{platformConfig[post.platform as Platform]?.name || post.platform || 'Unknown'}</span>
               </div>
             </div>
             <div className="flex flex-col gap-2 px-1 pb-1">
@@ -1027,15 +869,87 @@ export default function MarketingPage() {
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false)
   const [selectedPost, setSelectedPost] = useState<MarketingPost | null>(null)
   const [isDetailSidebarOpen, setIsDetailSidebarOpen] = useState(false)
+  const [posts, setPosts] = useState<MarketingPost[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadPosts() {
+      try {
+        const data = await marketingApi.getAll()
+        setPosts(data || [])
+      } catch (error) {
+        console.error('Error loading posts:', error)
+        setPosts([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadPosts()
+  }, [])
 
   const handlePostClick = (post: MarketingPost) => {
     setSelectedPost(post)
     setIsDetailSidebarOpen(true)
   }
 
-  const scheduledCount = mockPosts.filter(p => p.status === 'scheduled').length
-  const draftCount = mockPosts.filter(p => p.status === 'draft').length
-  const publishedCount = mockPosts.filter(p => p.status === 'published').length
+  const scheduledCount = posts.filter(p => p.status === 'scheduled').length
+  const draftCount = posts.filter(p => p.status === 'draft').length
+  const publishedCount = posts.filter(p => p.status === 'published').length
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+          <p className="text-gray-500 text-sm font-medium">Marketing posts laden...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (posts.length === 0) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900">Marketing</h1>
+            <p className="text-gray-500 mt-1">Manage social media content and campaigns</p>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setIsAIAssistantOpen(true)}
+              className="rounded-xl"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              AI Ideas
+            </Button>
+            <Button onClick={() => setIsCreateModalOpen(true)} className="rounded-xl shadow-lg shadow-indigo-200">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Post
+            </Button>
+          </div>
+        </div>
+
+        {/* Empty State */}
+        <div className="flex flex-col items-center justify-center min-h-[50vh] bg-white rounded-2xl border border-gray-200 shadow-sm">
+          <div className="p-4 rounded-full bg-gray-100 mb-4">
+            <Inbox className="h-10 w-10 text-gray-400" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-1">Nog geen marketing posts</h2>
+          <p className="text-gray-500 text-sm mb-6">Maak je eerste post aan</p>
+          <Button onClick={() => setIsCreateModalOpen(true)} className="rounded-xl shadow-lg shadow-indigo-200">
+            <Plus className="h-4 w-4 mr-2" />
+            Create Post
+          </Button>
+        </div>
+
+        <CreatePostModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} />
+        <AIContentAssistant isOpen={isAIAssistantOpen} onClose={() => setIsAIAssistantOpen(false)} />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -1062,14 +976,7 @@ export default function MarketingPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        <StatCard
-          icon={BarChart3}
-          label="Total Reach"
-          value="12.4k"
-          change="+12%"
-          iconBg="bg-blue-50 text-blue-600"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard
           icon={Send}
           label="Scheduled"
@@ -1077,16 +984,15 @@ export default function MarketingPage() {
           iconBg="bg-purple-50 text-purple-600"
         />
         <StatCard
-          icon={Heart}
-          label="Engagement"
-          value="4.2%"
-          change="+0.8%"
-          iconBg="bg-orange-50 text-orange-600"
+          icon={Check}
+          label="Published"
+          value={`${publishedCount} Posts`}
+          iconBg="bg-emerald-50 text-emerald-600"
         />
         <StatCard
           icon={FileEdit}
-          label="Pending Approval"
-          value={`${draftCount} drafts`}
+          label="Drafts"
+          value={`${draftCount} Posts`}
           iconBg="bg-pink-50 text-pink-600"
         />
       </div>
@@ -1171,9 +1077,9 @@ export default function MarketingPage() {
       </div>
 
       {/* Content */}
-      {viewMode === 'list' && <ListView posts={mockPosts} onPostClick={handlePostClick} />}
-      {viewMode === 'calendar' && <CalendarView posts={mockPosts} onPostClick={handlePostClick} />}
-      {viewMode === 'drafts' && <DraftsView posts={mockPosts} onPostClick={handlePostClick} />}
+      {viewMode === 'list' && <ListView posts={posts} onPostClick={handlePostClick} />}
+      {viewMode === 'calendar' && <CalendarView posts={posts} onPostClick={handlePostClick} />}
+      {viewMode === 'drafts' && <DraftsView posts={posts} onPostClick={handlePostClick} />}
 
       {/* Modals & Sidebars */}
       <CreatePostModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} />

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Plus,
   MoreHorizontal,
@@ -16,102 +16,34 @@ import {
   ChevronRight,
   Grid3X3,
   List,
-  Map
+  Map,
+  Loader2,
+  Inbox
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { salesLeadsApi, type SalesLead } from '@/lib/supabase'
 
-// Mock data for leads
-const mockLeads = [
-  {
-    id: '1',
-    name: 'Sunset Creative Studios',
-    location: 'Los Angeles, CA',
-    source: 'Apollo',
-    sourceColor: 'bg-purple-100 text-purple-700',
-    potential: '$2,400/mo',
-    daysInStage: 3,
-    status: 'cold',
-  },
-  {
-    id: '2',
-    name: 'Brooklyn Sound Lab',
-    location: 'New York, NY',
-    source: 'Referral',
-    sourceColor: 'bg-blue-100 text-blue-700',
-    potential: '$3,100/mo',
-    daysInStage: 5,
-    status: 'cold',
-  },
-  {
-    id: '3',
-    name: 'Austin Podcast Hub',
-    location: 'Austin, TX',
-    source: 'Cold Email',
-    sourceColor: 'bg-gray-100 text-gray-700',
-    potential: '$1,800/mo',
-    daysInStage: 2,
-    status: 'warm',
-  },
-  {
-    id: '4',
-    name: 'Miami Film Stage',
-    location: 'Miami, FL',
-    source: 'LinkedIn',
-    sourceColor: 'bg-blue-100 text-blue-700',
-    potential: '$4,200/mo',
-    daysInStage: 7,
-    status: 'warm',
-  },
-  {
-    id: '5',
-    name: 'Chicago Creative Loft',
-    location: 'Chicago, IL',
-    source: 'Apollo',
-    sourceColor: 'bg-purple-100 text-purple-700',
-    potential: '$2,800/mo',
-    daysInStage: 12,
-    status: 'hot',
-  },
-  {
-    id: '6',
-    name: 'Denver Photo Studio',
-    location: 'Denver, CO',
-    source: 'Website',
-    sourceColor: 'bg-emerald-100 text-emerald-700',
-    potential: '$1,500/mo',
-    daysInStage: 1,
-    status: 'hot',
-  },
-  {
-    id: '7',
-    name: 'Seattle Music Room',
-    location: 'Seattle, WA',
-    source: 'Referral',
-    sourceColor: 'bg-blue-100 text-blue-700',
-    potential: '$2,200/mo',
-    daysInStage: 0,
-    status: 'won',
-  },
-  {
-    id: '8',
-    name: 'Portland Event Space',
-    location: 'Portland, OR',
-    source: 'Cold Email',
-    sourceColor: 'bg-gray-100 text-gray-700',
-    potential: '$3,500/mo',
-    daysInStage: 14,
-    status: 'lost',
-  },
-]
+const sourceColorMap: Record<string, string> = {
+  'Apollo': 'bg-purple-100 text-purple-700',
+  'Referral': 'bg-blue-100 text-blue-700',
+  'Cold Email': 'bg-gray-100 text-gray-700',
+  'LinkedIn': 'bg-blue-100 text-blue-700',
+  'Website': 'bg-emerald-100 text-emerald-700',
+}
+
+const getSourceColor = (source?: string) => {
+  if (!source) return 'bg-gray-100 text-gray-700'
+  return sourceColorMap[source] || 'bg-gray-100 text-gray-700'
+}
 
 const pipelineColumns = [
   { id: 'cold', label: 'Cold', color: 'bg-slate-400', dotColor: 'bg-slate-400' },
   { id: 'warm', label: 'Warm', color: 'bg-amber-400', dotColor: 'bg-amber-400' },
   { id: 'hot', label: 'Hot', color: 'bg-orange-500', dotColor: 'bg-orange-500' },
-  { id: 'won', label: 'Won', color: 'bg-emerald-500', dotColor: 'bg-emerald-500' },
-  { id: 'lost', label: 'Lost', color: 'bg-red-400', dotColor: 'bg-red-400' },
+  { id: 'negotiation', label: 'Negotiation', color: 'bg-indigo-500', dotColor: 'bg-indigo-500' },
+  { id: 'closed', label: 'Closed', color: 'bg-emerald-500', dotColor: 'bg-emerald-500' },
 ]
 
 const milestones = [
@@ -123,40 +55,54 @@ const milestones = [
 ]
 
 interface LeadCardProps {
-  lead: typeof mockLeads[0]
+  lead: SalesLead
 }
 
 function LeadCard({ lead }: LeadCardProps) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer group">
       <div className="flex items-start justify-between mb-3">
-        <Badge className={cn('text-xs font-medium', lead.sourceColor)}>
-          {lead.source}
+        <Badge className={cn('text-xs font-medium', getSourceColor(lead.source))}>
+          {lead.source || 'Unknown'}
         </Badge>
         <button className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-gray-600">
           <MoreHorizontal className="h-4 w-4" />
         </button>
       </div>
 
-      <h4 className="font-semibold text-gray-900 mb-1">{lead.name}</h4>
+      <h4 className="font-semibold text-gray-900 mb-1">{lead.company_name}</h4>
 
-      <div className="flex items-center gap-1 text-sm text-gray-500 mb-3">
-        <MapPin className="h-3.5 w-3.5" />
-        <span>{lead.location}</span>
-      </div>
+      {lead.city && (
+        <div className="flex items-center gap-1 text-sm text-gray-500 mb-1">
+          <MapPin className="h-3.5 w-3.5" />
+          <span>{lead.city}</span>
+        </div>
+      )}
+
+      {lead.contact_name && (
+        <div className="text-sm text-gray-500 mb-3">{lead.contact_name}</div>
+      )}
 
       <div className="flex items-center justify-between pt-3 border-t border-gray-50">
-        <span className="text-sm font-medium text-emerald-600">{lead.potential}</span>
-        <span className="text-xs text-gray-400">{lead.daysInStage}d in stage</span>
+        {lead.email && (
+          <span className="text-xs text-gray-400 truncate">{lead.email}</span>
+        )}
+        {lead.phone && (
+          <span className="text-xs text-gray-400">{lead.phone}</span>
+        )}
       </div>
 
       <div className="flex gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button className="flex-1 p-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
-          <Phone className="h-3.5 w-3.5 mx-auto text-gray-500" />
-        </button>
-        <button className="flex-1 p-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
-          <Mail className="h-3.5 w-3.5 mx-auto text-gray-500" />
-        </button>
+        {lead.phone && (
+          <button className="flex-1 p-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+            <Phone className="h-3.5 w-3.5 mx-auto text-gray-500" />
+          </button>
+        )}
+        {lead.email && (
+          <button className="flex-1 p-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+            <Mail className="h-3.5 w-3.5 mx-auto text-gray-500" />
+          </button>
+        )}
         <button className="flex-1 p-1.5 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
           <Building2 className="h-3.5 w-3.5 mx-auto text-gray-500" />
         </button>
@@ -168,26 +114,65 @@ function LeadCard({ lead }: LeadCardProps) {
 export default function SalesPage() {
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
   const [activeView, setActiveView] = useState<'pipeline' | 'list' | 'map'>('pipeline')
+  const [leads, setLeads] = useState<SalesLead[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Calculate stats
-  const currentStudios = 247
+  useEffect(() => {
+    async function loadLeads() {
+      try {
+        const data = await salesLeadsApi.getAll()
+        setLeads(data || [])
+      } catch (error) {
+        console.error('Error loading leads:', error)
+        setLeads([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadLeads()
+  }, [])
+
+  // Calculate stats from real data
+  const coldLeads = leads.filter(l => l.status === 'cold')
+  const warmLeads = leads.filter(l => l.status === 'warm')
+  const hotLeads = leads.filter(l => l.status === 'hot')
+  const negotiationLeads = leads.filter(l => l.status === 'negotiation')
+  const closedLeads = leads.filter(l => l.status === 'closed')
+
+  const activeLeadsCount = coldLeads.length + warmLeads.length + hotLeads.length + negotiationLeads.length
+  const totalLeads = leads.length
+  const conversionRate = totalLeads > 0 ? Math.round((closedLeads.length / totalLeads) * 100) : 0
+
+  const currentStudios = closedLeads.length
   const goalStudios = 1000
   const progressPercent = (currentStudios / goalStudios) * 100
 
-  const coldLeads = mockLeads.filter(l => l.status === 'cold')
-  const warmLeads = mockLeads.filter(l => l.status === 'warm')
-  const hotLeads = mockLeads.filter(l => l.status === 'hot')
-  const wonLeads = mockLeads.filter(l => l.status === 'won')
-
   const getLeadsByStatus = (status: string) => {
-    return mockLeads.filter(l => l.status === status)
+    return leads.filter(l => l.status === status)
   }
 
-  const calculateColumnValue = (leads: typeof mockLeads) => {
-    return leads.reduce((sum, lead) => {
-      const value = parseFloat(lead.potential.replace(/[^0-9.]/g, ''))
-      return sum + value
-    }, 0)
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    )
+  }
+
+  if (leads.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 text-center">
+        <div className="p-4 rounded-full bg-gray-100 mb-4">
+          <Inbox className="h-10 w-10 text-gray-400" />
+        </div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Nog geen leads</h2>
+        <p className="text-gray-500 mb-6">Voeg je eerste sales lead toe</p>
+        <Button>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Lead
+        </Button>
+      </div>
+    )
   }
 
   return (
@@ -241,20 +226,20 @@ export default function SalesPage() {
           {/* Quick Stats */}
           <div className="grid grid-cols-4 gap-4 mt-6 pt-6 border-t border-white/20">
             <div className="text-center">
-              <div className="text-2xl font-bold">{coldLeads.length + warmLeads.length + hotLeads.length}</div>
+              <div className="text-2xl font-bold">{activeLeadsCount}</div>
               <div className="text-indigo-200 text-sm">Active Leads</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold">{wonLeads.length}</div>
-              <div className="text-indigo-200 text-sm">Won This Month</div>
+              <div className="text-2xl font-bold">{closedLeads.length}</div>
+              <div className="text-indigo-200 text-sm">Closed</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold">68%</div>
+              <div className="text-2xl font-bold">{conversionRate}%</div>
               <div className="text-indigo-200 text-sm">Conversion Rate</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold">$24.5k</div>
-              <div className="text-indigo-200 text-sm">Pipeline Value</div>
+              <div className="text-2xl font-bold">{totalLeads}</div>
+              <div className="text-indigo-200 text-sm">Total Leads</div>
             </div>
           </div>
         </div>
@@ -337,7 +322,6 @@ export default function SalesPage() {
       <div className="grid grid-cols-5 gap-4">
         {pipelineColumns.map((column) => {
           const columnLeads = getLeadsByStatus(column.id)
-          const columnValue = calculateColumnValue(columnLeads)
           const showColumn = !activeFilter || activeFilter === column.id
 
           if (!showColumn) return null
@@ -351,7 +335,7 @@ export default function SalesPage() {
                   <span className="font-semibold text-gray-900">{column.label}</span>
                   <Badge variant="secondary" className="text-xs">{columnLeads.length}</Badge>
                 </div>
-                <span className="text-sm text-gray-500">${columnValue.toLocaleString()}</span>
+                <span className="text-sm text-gray-500">{columnLeads.length} leads</span>
               </div>
 
               {/* Cards */}
@@ -472,12 +456,12 @@ export default function SalesPage() {
               <span className="text-sm font-semibold text-emerald-600">62%</span>
             </div>
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-              <span className="text-sm text-gray-600">Hot → Won</span>
+              <span className="text-sm text-gray-600">Hot → Closed</span>
               <span className="text-sm font-semibold text-emerald-600">78%</span>
             </div>
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
               <span className="text-sm text-gray-600">Overall</span>
-              <span className="text-sm font-semibold text-emerald-600">68%</span>
+              <span className="text-sm font-semibold text-emerald-600">{conversionRate}%</span>
             </div>
           </div>
         </div>

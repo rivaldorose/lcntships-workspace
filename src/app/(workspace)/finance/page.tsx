@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   DollarSign,
   Percent,
@@ -17,63 +17,53 @@ import {
   Filter,
   MoreHorizontal,
   ArrowDownLeft,
-  ArrowUpRight
+  ArrowUpRight,
+  Loader2,
+  Inbox
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn, formatCurrency } from '@/lib/utils'
+import { transactionsApi, financeApi } from '@/lib/supabase'
 
-// Mock data for revenue by studio
-const revenueByStudio = [
-  { name: 'Sunlight Studios', revenue: 75200, percentage: 60, color: 'bg-indigo-500' },
-  { name: 'Echo Sound Studio', revenue: 32150, percentage: 25, color: 'bg-emerald-500' },
-  { name: 'The Creative Loft', revenue: 17150, percentage: 15, color: 'bg-orange-500' },
-]
-
-// Mock transactions
-const transactions = [
-  {
-    id: '1',
-    type: 'payment',
-    description: 'Payment from Sarah M.',
-    studio: 'Sunlight Studios',
-    date: 'Jan 24, 2025',
-    status: 'succeeded',
-    amount: 120,
-  },
-  {
-    id: '2',
-    type: 'payment',
-    description: 'Payment from Mike R.',
-    studio: 'Echo Sound Studio',
-    date: 'Jan 24, 2025',
-    status: 'succeeded',
-    amount: 85,
-  },
-  {
-    id: '3',
-    type: 'payout',
-    description: 'Payout to Bank ****4242',
-    studio: 'All Studios',
-    date: 'Jan 23, 2025',
-    status: 'processing',
-    amount: -4250,
-  },
-  {
-    id: '4',
-    type: 'payment',
-    description: 'Payment from Jessica L.',
-    studio: 'Sunlight Studios',
-    date: 'Jan 22, 2025',
-    status: 'pending',
-    amount: 240,
-  },
-]
+const studioColors = ['bg-indigo-500', 'bg-emerald-500', 'bg-orange-500', 'bg-purple-500']
 
 export default function FinancePage() {
   const [dateRange] = useState('Last 30 Days')
+  const [transactions, setTransactions] = useState<any[]>([])
+  const [revenueByStudio, setRevenueByStudio] = useState<any[]>([])
+  const [overview, setOverview] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadFinance() {
+      try {
+        const [txs, revenue, stats] = await Promise.all([
+          transactionsApi.getAll(),
+          financeApi.getRevenueByStudio(),
+          financeApi.getOverview(),
+        ])
+        setTransactions(txs || [])
+        setRevenueByStudio(revenue || [])
+        setOverview(stats)
+      } catch (error) {
+        console.error('Error loading finance:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadFinance()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -106,7 +96,7 @@ export default function FinancePage() {
               <DollarSign className="h-5 w-5 text-gray-400" />
             </div>
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 tracking-tight">$124,500.00</h3>
+              <h3 className="text-2xl font-bold text-gray-900 tracking-tight">{formatCurrency(overview?.totalRevenue ?? 0)}</h3>
               <div className="flex items-center gap-1 mt-1">
                 <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
                 <span className="text-xs font-semibold text-emerald-500">+8.2%</span>
@@ -124,7 +114,7 @@ export default function FinancePage() {
               <Percent className="h-5 w-5 text-gray-400" />
             </div>
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 tracking-tight">$18,675.00</h3>
+              <h3 className="text-2xl font-bold text-gray-900 tracking-tight">{formatCurrency(overview?.platformFees ?? 0)}</h3>
               <div className="flex items-center gap-1 mt-1">
                 <span className="text-xs font-medium text-gray-500">Your commission earnings</span>
               </div>
@@ -140,7 +130,7 @@ export default function FinancePage() {
               <Wallet className="h-5 w-5 text-orange-400" />
             </div>
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 tracking-tight">$85,000.00</h3>
+              <h3 className="text-2xl font-bold text-gray-900 tracking-tight">{formatCurrency(overview?.partnerPayouts ?? 0)}</h3>
               <div className="flex items-center gap-1 mt-1">
                 <span className="text-xs font-semibold text-orange-500">Processed</span>
                 <span className="text-xs text-gray-500 ml-1">in last 30 days</span>
@@ -158,7 +148,7 @@ export default function FinancePage() {
               <Clock className="h-5 w-5 text-indigo-500" />
             </div>
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 tracking-tight">$12,450.00</h3>
+              <h3 className="text-2xl font-bold text-gray-900 tracking-tight">{formatCurrency(overview?.pendingPayouts ?? 0)}</h3>
               <div className="flex items-center gap-1 mt-1">
                 <span className="px-1.5 py-0.5 rounded-md bg-indigo-100 text-indigo-600 text-[10px] font-bold uppercase tracking-wider">
                   Arriving Thu
@@ -239,7 +229,7 @@ export default function FinancePage() {
                 </div>
               </div>
               <div className="mt-6">
-                <span className="text-3xl font-bold text-gray-900 tracking-tight">$12,450.00</span>
+                <span className="text-3xl font-bold text-gray-900 tracking-tight">{formatCurrency(overview?.pendingPayouts ?? 0)}</span>
               </div>
               <div className="mt-6">
                 <Button className="w-full gap-2">
@@ -256,7 +246,7 @@ export default function FinancePage() {
               <CardTitle className="text-base font-bold">Revenue by Studio</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {revenueByStudio.map((studio) => (
+              {revenueByStudio.map((studio, index) => (
                 <div key={studio.name}>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="font-medium text-gray-900">{studio.name}</span>
@@ -264,7 +254,7 @@ export default function FinancePage() {
                   </div>
                   <div className="w-full bg-gray-100 rounded-full h-2">
                     <div
-                      className={cn("h-2 rounded-full", studio.color)}
+                      className={cn("h-2 rounded-full", studioColors[index % studioColors.length])}
                       style={{ width: `${studio.percentage}%` }}
                     />
                   </div>
@@ -309,52 +299,62 @@ export default function FinancePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {transactions.map((tx) => (
-                <tr key={tx.id} className="group hover:bg-gray-50/50 transition-colors cursor-pointer">
-                  <td className="py-4 px-6">
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "h-8 w-8 rounded-full flex items-center justify-center",
-                        tx.type === 'payment' ? 'bg-indigo-100 text-indigo-600' : 'bg-orange-100 text-orange-600'
-                      )}>
-                        {tx.type === 'payment' ? (
-                          <ArrowDownLeft className="h-4 w-4" />
-                        ) : (
-                          <ArrowUpRight className="h-4 w-4" />
-                        )}
-                      </div>
-                      <span className="font-medium text-gray-900">{tx.description}</span>
-                    </div>
-                  </td>
-                  <td className="py-4 px-6 text-sm text-gray-500">{tx.studio}</td>
-                  <td className="py-4 px-6 text-sm text-gray-500">{tx.date}</td>
-                  <td className="py-4 px-6">
-                    <Badge
-                      variant={
-                        tx.status === 'succeeded' ? 'success' :
-                        tx.status === 'processing' ? 'secondary' :
-                        'warning'
-                      }
-                      className={cn(
-                        "capitalize",
-                        tx.status === 'succeeded' && "bg-emerald-50 text-emerald-700 border-emerald-200",
-                        tx.status === 'processing' && "bg-gray-100 text-gray-600 border-gray-200",
-                        tx.status === 'pending' && "bg-yellow-50 text-yellow-700 border-yellow-200"
-                      )}
-                    >
-                      {tx.status}
-                    </Badge>
-                  </td>
-                  <td className="py-4 px-6 text-sm font-semibold text-gray-900 text-right font-mono">
-                    {tx.amount > 0 ? '+' : ''}{formatCurrency(Math.abs(tx.amount))}
-                  </td>
-                  <td className="py-4 px-6 text-center">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
+              {transactions.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center">
+                    <Inbox className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-gray-500">No transactions yet</p>
+                    <p className="text-xs text-gray-400 mt-1">Transactions will appear here once recorded.</p>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                transactions.map((tx) => (
+                  <tr key={tx.id} className="group hover:bg-gray-50/50 transition-colors cursor-pointer">
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "h-8 w-8 rounded-full flex items-center justify-center",
+                          tx.type === 'payment' ? 'bg-indigo-100 text-indigo-600' : 'bg-orange-100 text-orange-600'
+                        )}>
+                          {tx.type === 'payment' ? (
+                            <ArrowDownLeft className="h-4 w-4" />
+                          ) : (
+                            <ArrowUpRight className="h-4 w-4" />
+                          )}
+                        </div>
+                        <span className="font-medium text-gray-900">{tx.description}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 text-sm text-gray-500">{tx.partner?.company_name ?? '—'}</td>
+                    <td className="py-4 px-6 text-sm text-gray-500">{tx.created_at ? new Date(tx.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
+                    <td className="py-4 px-6">
+                      <Badge
+                        variant={
+                          tx.status === 'succeeded' ? 'success' :
+                          tx.status === 'processing' ? 'secondary' :
+                          'warning'
+                        }
+                        className={cn(
+                          "capitalize",
+                          tx.status === 'succeeded' && "bg-emerald-50 text-emerald-700 border-emerald-200",
+                          tx.status === 'processing' && "bg-gray-100 text-gray-600 border-gray-200",
+                          tx.status === 'pending' && "bg-yellow-50 text-yellow-700 border-yellow-200"
+                        )}
+                      >
+                        {tx.status}
+                      </Badge>
+                    </td>
+                    <td className="py-4 px-6 text-sm font-semibold text-gray-900 text-right font-mono">
+                      {tx.amount > 0 ? '+' : ''}{formatCurrency(Math.abs(tx.amount))}
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

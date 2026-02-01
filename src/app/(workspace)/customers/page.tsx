@@ -49,90 +49,6 @@ interface CustomerDisplay {
   favStudio: string
 }
 
-// Fallback data for when database is empty
-const fallbackCustomers: CustomerDisplay[] = [
-  {
-    id: '1',
-    firstName: 'Sarah',
-    lastName: 'Jenkins',
-    email: 'sarah@example.com',
-    phone: '+1 (310) 555-1234',
-    totalBookings: 12,
-    totalSpent: 3400,
-    lastBooking: '2 days ago',
-    type: 'vip',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-    isOnline: true,
-    customerSince: 'March 2024',
-    avgBooking: 283,
-    favStudio: 'Studio A',
-  },
-  {
-    id: '2',
-    firstName: 'Mike',
-    lastName: 'Ross',
-    email: 'mike@example.com',
-    phone: '+1 (212) 555-5678',
-    totalBookings: 1,
-    totalSpent: 150,
-    lastBooking: 'Yesterday',
-    type: 'new',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-    isOnline: false,
-    customerSince: 'January 2025',
-    avgBooking: 150,
-    favStudio: 'Studio B',
-  },
-  {
-    id: '3',
-    firstName: 'Jessica',
-    lastName: 'Pearson',
-    email: 'jessica@example.com',
-    phone: '+1 (312) 555-9012',
-    totalBookings: 45,
-    totalSpent: 12000,
-    lastBooking: '1 week ago',
-    type: 'regular',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
-    isOnline: false,
-    customerSince: 'June 2023',
-    avgBooking: 267,
-    favStudio: 'Studio A',
-  },
-  {
-    id: '4',
-    firstName: 'David',
-    lastName: 'Lee',
-    email: 'david@example.com',
-    phone: '+1 (512) 555-3456',
-    totalBookings: 5,
-    totalSpent: 850,
-    lastBooking: '3 days ago',
-    type: 'regular',
-    avatar: null,
-    isOnline: false,
-    customerSince: 'November 2024',
-    avgBooking: 170,
-    favStudio: 'Studio C',
-  },
-  {
-    id: '5',
-    firstName: 'Anna',
-    lastName: 'de Vries',
-    email: 'anna@example.com',
-    phone: '+31 6 1234 5678',
-    totalBookings: 12,
-    totalSpent: 2400,
-    lastBooking: '5 days ago',
-    type: 'vip',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-    isOnline: true,
-    customerSince: 'March 2024',
-    avgBooking: 200,
-    favStudio: 'Studio A',
-  },
-]
-
 // Helper to format date
 function formatCustomerSince(dateString?: string): string {
   if (!dateString) return 'Unknown'
@@ -147,21 +63,9 @@ function determineCustomerType(customer: Customer): string {
   const daysSinceCreation = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
 
   if (daysSinceCreation <= 30) return 'new'
-  if (customer.is_verified) return 'vip'
+  if (customer.total_bookings > 10) return 'vip'
   return 'regular'
 }
-
-const bookingHistory = [
-  { id: '1', studio: 'Studio A (North Light)', date: 'Mar 15', hours: '4 hours', time: '09:00 - 13:00', amount: 800 },
-  { id: '2', studio: 'Studio B (Cyc Wall)', date: 'Feb 28', hours: '2 hours', time: '14:00 - 16:00', amount: 400 },
-  { id: '3', studio: 'Studio A (North Light)', date: 'Feb 10', hours: 'Full Day', time: '08:00 - 18:00', amount: 1200 },
-]
-
-const customerTags = [
-  { label: 'Morning Slots', icon: Sun, color: 'text-orange-500' },
-  { label: 'Requires Lighting Gear', icon: Camera, color: 'text-blue-500' },
-  { label: 'Coffee Machine', icon: Coffee, color: 'text-purple-500' },
-]
 
 const typeConfig = {
   vip: {
@@ -444,35 +348,9 @@ function CustomerDetailSidebar({ customer, isOpen, onClose }: CustomerDetailSide
                   <Calendar className="h-4 w-4 text-indigo-600" />
                   Recent History
                 </h3>
-                <button className="text-indigo-600 text-xs font-semibold hover:underline">View All</button>
               </div>
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                {bookingHistory.map((booking, index) => (
-                  <div
-                    key={booking.id}
-                    className={cn(
-                      'flex items-center justify-between p-4 hover:bg-gray-50 transition-colors group',
-                      index < bookingHistory.length - 1 && 'border-b border-gray-100'
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-xs flex-col leading-none">
-                        <span className="uppercase text-[10px]">{booking.date.split(' ')[0]}</span>
-                        <span className="text-sm">{booking.date.split(' ')[1]}</span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-gray-900">{booking.studio}</p>
-                        <p className="text-xs text-gray-500">{booking.hours} • {booking.time}</p>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <span className="text-sm font-bold text-gray-900">€{booking.amount}</span>
-                      <button className="text-xs text-indigo-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                        View
-                      </button>
-                    </div>
-                  </div>
-                ))}
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 text-center">
+                <p className="text-gray-400 text-sm">Nog geen boekingsgeschiedenis</p>
               </div>
             </section>
 
@@ -483,18 +361,6 @@ function CustomerDetailSidebar({ customer, isOpen, onClose }: CustomerDetailSide
                 Preferences & Tags
               </h3>
               <div className="flex flex-wrap gap-2">
-                {customerTags.map((tag) => {
-                  const Icon = tag.icon
-                  return (
-                    <span
-                      key={tag.label}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-sm text-gray-700"
-                    >
-                      <Icon className={cn('h-4 w-4', tag.color)} />
-                      {tag.label}
-                    </span>
-                  )
-                })}
                 <button className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-dashed border-gray-300 hover:border-indigo-400 hover:text-indigo-600 transition-colors text-gray-400">
                   <Plus className="h-4 w-4" />
                 </button>
@@ -574,35 +440,30 @@ export default function CustomersPage() {
     async function fetchCustomers() {
       try {
         const data = await customersApi.getAll()
-        if (data && data.length > 0) {
-          // Map Supabase data to display format
-          setCustomers(data.map((c: Customer) => {
-            const nameParts = (c.full_name || 'Unknown User').split(' ')
-            return {
-              id: c.id,
-              firstName: nameParts[0] || 'Unknown',
-              lastName: nameParts.slice(1).join(' ') || '',
-              email: c.email,
-              phone: c.phone || '',
-              totalBookings: 0, // Would need to aggregate from bookings
-              totalSpent: 0, // Would need to aggregate from bookings
-              lastBooking: 'N/A',
-              type: determineCustomerType(c),
-              avatar: c.avatar_url || null,
-              isOnline: false,
-              customerSince: formatCustomerSince(c.created_at),
-              avgBooking: 0,
-              favStudio: 'N/A',
-            }
-          }))
-        } else {
-          // Use fallback data if database is empty
-          setCustomers(fallbackCustomers)
-        }
+        setCustomers((data || []).map((c: Customer) => {
+          const nameParts = (c.full_name || 'Unknown User').split(' ')
+          const totalSpent = c.total_spent || 0
+          const totalBookings = c.total_bookings || 0
+          return {
+            id: c.id,
+            firstName: nameParts[0] || 'Unknown',
+            lastName: nameParts.slice(1).join(' ') || '',
+            email: c.email,
+            phone: c.phone || '',
+            totalBookings,
+            totalSpent,
+            lastBooking: 'N/A',
+            type: determineCustomerType(c),
+            avatar: null,
+            isOnline: false,
+            customerSince: formatCustomerSince(c.created_at),
+            avgBooking: totalBookings > 0 ? Math.round(totalSpent / totalBookings) : 0,
+            favStudio: 'N/A',
+          }
+        }))
       } catch (error) {
         console.error('Error fetching customers:', error)
-        // Use fallback data on error
-        setCustomers(fallbackCustomers)
+        setCustomers([])
       } finally {
         setLoading(false)
       }
@@ -753,9 +614,8 @@ export default function CustomersPage() {
           </div>
           <div>
             <p className="text-3xl font-bold text-gray-900 tracking-tight">{totalCustomers.toLocaleString()}</p>
-            <p className="text-emerald-600 text-sm font-medium mt-1 flex items-center gap-1">
-              <TrendingUp className="h-4 w-4" />
-              +12% vs last month
+            <p className="text-gray-500 text-sm font-medium mt-1">
+              Totaal
             </p>
           </div>
         </div>
@@ -769,9 +629,8 @@ export default function CustomersPage() {
           </div>
           <div>
             <p className="text-3xl font-bold text-gray-900 tracking-tight">{activeThisMonth}</p>
-            <p className="text-emerald-600 text-sm font-medium mt-1 flex items-center gap-1">
-              <TrendingUp className="h-4 w-4" />
-              +5% vs last month
+            <p className="text-gray-500 text-sm font-medium mt-1">
+              Met boekingen
             </p>
           </div>
         </div>
@@ -785,9 +644,8 @@ export default function CustomersPage() {
           </div>
           <div>
             <p className="text-3xl font-bold text-gray-900 tracking-tight">{newThisWeek}</p>
-            <p className="text-emerald-600 text-sm font-medium mt-1 flex items-center gap-1">
-              <TrendingUp className="h-4 w-4" />
-              +2% vs last week
+            <p className="text-gray-500 text-sm font-medium mt-1">
+              Nieuw
             </p>
           </div>
         </div>
@@ -801,9 +659,8 @@ export default function CustomersPage() {
           </div>
           <div>
             <p className="text-3xl font-bold text-gray-900 tracking-tight">{repeatCustomers}%</p>
-            <p className="text-emerald-600 text-sm font-medium mt-1 flex items-center gap-1">
-              <TrendingUp className="h-4 w-4" />
-              +1% vs last month
+            <p className="text-gray-500 text-sm font-medium mt-1">
+              Terugkerend
             </p>
           </div>
         </div>

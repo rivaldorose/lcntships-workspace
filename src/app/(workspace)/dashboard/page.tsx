@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import {
   DollarSign,
   Calendar,
@@ -15,259 +16,286 @@ import {
   UserPlus,
   CreditCard,
   FileText,
+  Plus,
+  Inbox,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { dashboardApi, profilesApi } from '@/lib/supabase'
+import Link from 'next/link'
 
-// Mock data
-const metrics = [
-  {
-    label: 'Total Revenue',
-    value: '$124,500',
-    change: '+12.5%',
-    trend: 'up' as const,
-    icon: DollarSign,
-    iconBg: 'bg-emerald-100',
-    iconColor: 'text-emerald-600',
-  },
-  {
-    label: 'Active Bookings',
-    value: '1,240',
-    change: '+8.2%',
-    trend: 'up' as const,
-    icon: Calendar,
-    iconBg: 'bg-indigo-100',
-    iconColor: 'text-indigo-600',
-  },
-  {
-    label: 'New Partners',
-    value: '842',
-    change: '-2.4%',
-    trend: 'down' as const,
-    icon: Users,
-    iconBg: 'bg-amber-100',
-    iconColor: 'text-amber-600',
-  },
-  {
-    label: 'System Health',
-    value: '99.9%',
-    change: 'Operational',
-    trend: 'neutral' as const,
-    icon: Activity,
-    iconBg: 'bg-emerald-100',
-    iconColor: 'text-emerald-600',
-  },
-]
+interface DashboardStats {
+  studiosCount: number
+  bookingsCount: number
+  activeBookingsCount: number
+  pendingBookingsCount: number
+  partnersCount: number
+  pendingPartnersCount: number
+  usersCount: number
+  totalRevenue: number
+  totalPayouts: number
+}
 
-const recentActivity = [
-  {
-    id: 1,
-    type: 'booking',
-    icon: Calendar,
-    iconBg: 'bg-indigo-100',
-    iconColor: 'text-indigo-600',
-    title: 'New booking confirmed',
-    description: 'Studio A - Downtown Creative Hub',
-    time: '2 minutes ago',
-  },
-  {
-    id: 2,
-    type: 'partner',
-    icon: UserPlus,
-    iconBg: 'bg-emerald-100',
-    iconColor: 'text-emerald-600',
-    title: 'New partner onboarded',
-    description: 'SoundWave Studios joined the platform',
-    time: '15 minutes ago',
-  },
-  {
-    id: 3,
-    type: 'payment',
-    icon: CreditCard,
-    iconBg: 'bg-amber-100',
-    iconColor: 'text-amber-600',
-    title: 'Payment processed',
-    description: '$2,450.00 from Premium Package booking',
-    time: '1 hour ago',
-  },
-  {
-    id: 4,
-    type: 'document',
-    icon: FileText,
-    iconBg: 'bg-purple-100',
-    iconColor: 'text-purple-600',
-    title: 'Contract signed',
-    description: 'Annual partnership agreement - LA Studios',
-    time: '3 hours ago',
-  },
-]
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('nl-NL', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount)
+}
 
-const studioOccupancy = [
-  { name: 'Downtown Creative Hub', occupancy: 87, color: 'bg-indigo-500' },
-  { name: 'Westside Recording Co.', occupancy: 72, color: 'bg-emerald-500' },
-  { name: 'Sunset Sound Studios', occupancy: 95, color: 'bg-amber-500' },
-  { name: 'Echo Park Audio', occupancy: 64, color: 'bg-purple-500' },
-]
+function formatNumber(num: number): string {
+  return new Intl.NumberFormat('nl-NL').format(num)
+}
 
-const pendingTasks = [
-  {
-    id: 1,
-    title: 'Review partner applications',
-    count: 5,
-    priority: 'high',
-    icon: Users,
-  },
-  {
-    id: 2,
-    title: 'Approve pending bookings',
-    count: 12,
-    priority: 'medium',
-    icon: Calendar,
-  },
-  {
-    id: 3,
-    title: 'Process payout requests',
-    count: 3,
-    priority: 'high',
-    icon: DollarSign,
-  },
-]
+function SkeletonCard() {
+  return (
+    <div className="bg-white rounded-2xl p-6 shadow-lg shadow-gray-200/50 border border-gray-100 animate-pulse">
+      <div className="flex items-start justify-between">
+        <div className="w-12 h-12 rounded-xl bg-gray-200" />
+        <div className="w-16 h-5 rounded bg-gray-200" />
+      </div>
+      <div className="mt-4">
+        <div className="w-24 h-8 rounded bg-gray-200" />
+        <div className="w-20 h-4 rounded bg-gray-200 mt-2" />
+      </div>
+    </div>
+  )
+}
 
-// Revenue chart data points (simplified SVG path)
-const revenueData = [40, 65, 45, 80, 55, 90, 70, 85, 95, 75, 88, 100]
-const payoutData = [30, 45, 35, 60, 40, 70, 55, 65, 75, 60, 68, 80]
+function SkeletonBlock() {
+  return (
+    <div className="bg-white rounded-2xl p-6 shadow-lg shadow-gray-200/50 border border-gray-100 animate-pulse">
+      <div className="w-40 h-6 rounded bg-gray-200 mb-6" />
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gray-200 flex-shrink-0" />
+            <div className="flex-1">
+              <div className="w-32 h-4 rounded bg-gray-200" />
+              <div className="w-48 h-3 rounded bg-gray-200 mt-2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
-function RevenueChart() {
-  const width = 600
-  const height = 200
-  const padding = 20
+function EmptyState({
+  icon: Icon,
+  title,
+  description,
+  actionLabel,
+  actionHref,
+}: {
+  icon: React.ElementType
+  title: string
+  description: string
+  actionLabel?: string
+  actionHref?: string
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-8 text-center">
+      <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+        <Icon className="h-7 w-7 text-gray-400" />
+      </div>
+      <h3 className="text-sm font-semibold text-gray-900 mb-1">{title}</h3>
+      <p className="text-sm text-gray-500 max-w-[240px]">{description}</p>
+      {actionLabel && actionHref && (
+        <Link
+          href={actionHref}
+          className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          {actionLabel}
+        </Link>
+      )}
+    </div>
+  )
+}
 
-  const maxValue = 120
-  const xStep = (width - padding * 2) / (revenueData.length - 1)
-
-  const createPath = (data: number[]) => {
-    return data
-      .map((value, index) => {
-        const x = padding + index * xStep
-        const y = height - padding - (value / maxValue) * (height - padding * 2)
-        return `${index === 0 ? 'M' : 'L'} ${x} ${y}`
-      })
-      .join(' ')
+function RevenueChart({ revenue, payouts }: { revenue: number; payouts: number }) {
+  // When there's no data, show empty state
+  if (revenue === 0 && payouts === 0) {
+    return (
+      <EmptyState
+        icon={DollarSign}
+        title="Nog geen omzet data"
+        description="Zodra er boekingen binnenkomen verschijnt hier je omzet vs. uitbetalingen grafiek."
+      />
+    )
   }
 
-  const createArea = (data: number[]) => {
-    const path = data
-      .map((value, index) => {
-        const x = padding + index * xStep
-        const y = height - padding - (value / maxValue) * (height - padding * 2)
-        return `${index === 0 ? 'M' : 'L'} ${x} ${y}`
-      })
-      .join(' ')
-
-    const lastX = padding + (data.length - 1) * xStep
-    const firstX = padding
-
-    return `${path} L ${lastX} ${height - padding} L ${firstX} ${height - padding} Z`
-  }
-
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  // Simple bar chart showing revenue vs payouts totals
+  const maxValue = Math.max(revenue, payouts, 1)
 
   return (
-    <div className="relative">
-      <svg viewBox={`0 0 ${width} ${height + 30}`} className="w-full h-auto">
-        {/* Grid lines */}
-        {[0, 25, 50, 75, 100].map((value) => {
-          const y = height - padding - (value / maxValue) * (height - padding * 2)
-          return (
-            <g key={value}>
-              <line
-                x1={padding}
-                y1={y}
-                x2={width - padding}
-                y2={y}
-                stroke="#f1f5f9"
-                strokeWidth="1"
-              />
-              <text x={padding - 5} y={y + 4} textAnchor="end" className="fill-gray-400 text-[10px]">
-                ${value}k
-              </text>
-            </g>
-          )
-        })}
-
-        {/* Area fills */}
-        <path d={createArea(revenueData)} fill="url(#revenueGradient)" opacity="0.3" />
-        <path d={createArea(payoutData)} fill="url(#payoutGradient)" opacity="0.3" />
-
-        {/* Lines */}
-        <path
-          d={createPath(revenueData)}
-          fill="none"
-          stroke="#6366f1"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path
-          d={createPath(payoutData)}
-          fill="none"
-          stroke="#10b981"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        {/* Data points */}
-        {revenueData.map((value, index) => {
-          const x = padding + index * xStep
-          const y = height - padding - (value / maxValue) * (height - padding * 2)
-          return <circle key={`revenue-${index}`} cx={x} cy={y} r="4" fill="#6366f1" />
-        })}
-        {payoutData.map((value, index) => {
-          const x = padding + index * xStep
-          const y = height - padding - (value / maxValue) * (height - padding * 2)
-          return <circle key={`payout-${index}`} cx={x} cy={y} r="4" fill="#10b981" />
-        })}
-
-        {/* X-axis labels */}
-        {months.map((month, index) => {
-          const x = padding + index * xStep
-          return (
-            <text
-              key={month}
-              x={x}
-              y={height + 15}
-              textAnchor="middle"
-              className="fill-gray-400 text-[10px]"
-            >
-              {month}
-            </text>
-          )
-        })}
-
-        {/* Gradients */}
-        <defs>
-          <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#6366f1" />
-            <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
-          </linearGradient>
-          <linearGradient id="payoutGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#10b981" />
-            <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-      </svg>
+    <div className="space-y-6 py-4">
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-gray-700">Revenue</span>
+          <span className="text-sm font-bold text-indigo-600">{formatCurrency(revenue)}</span>
+        </div>
+        <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full bg-indigo-500 transition-all duration-700"
+            style={{ width: `${(revenue / maxValue) * 100}%` }}
+          />
+        </div>
+      </div>
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-gray-700">Payouts</span>
+          <span className="text-sm font-bold text-emerald-600">{formatCurrency(payouts)}</span>
+        </div>
+        <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full bg-emerald-500 transition-all duration-700"
+            style={{ width: `${(payouts / maxValue) * 100}%` }}
+          />
+        </div>
+      </div>
     </div>
   )
 }
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [studios, setStudios] = useState<{ id: string; title: string; status: string | null }[]>([])
+  const [recentBookings, setRecentBookings] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [userName, setUserName] = useState<string>('')
+
+  useEffect(() => {
+    async function loadDashboard() {
+      try {
+        const [dashStats, studioList, bookings, profile] = await Promise.all([
+          dashboardApi.getStats(),
+          dashboardApi.getStudios(),
+          dashboardApi.getRecentBookings(4),
+          profilesApi.getCurrent(),
+        ])
+        setStats(dashStats)
+        setStudios(studioList)
+        setRecentBookings(bookings)
+        if (profile?.full_name) {
+          setUserName(profile.full_name.split(' ')[0])
+        }
+      } catch (err) {
+        console.error('Failed to load dashboard data:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadDashboard()
+  }, [])
+
   const today = new Date()
-  const formattedDate = today.toLocaleDateString('en-US', {
+  const formattedDate = today.toLocaleDateString('nl-NL', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   })
+
+  const metrics: {
+    label: string
+    value: string
+    change: string
+    trend: 'up' | 'down' | 'neutral'
+    icon: React.ElementType
+    iconBg: string
+    iconColor: string
+  }[] = stats
+    ? [
+        {
+          label: 'Totale Omzet',
+          value: formatCurrency(stats.totalRevenue),
+          change: stats.totalRevenue > 0 ? `${stats.bookingsCount} boekingen` : 'Nog geen omzet',
+          trend: stats.totalRevenue > 0 ? 'up' : 'neutral',
+          icon: DollarSign,
+          iconBg: 'bg-emerald-100',
+          iconColor: 'text-emerald-600',
+        },
+        {
+          label: 'Actieve Boekingen',
+          value: formatNumber(stats.activeBookingsCount),
+          change: stats.pendingBookingsCount > 0 ? `${stats.pendingBookingsCount} pending` : 'Geen pending',
+          trend: stats.activeBookingsCount > 0 ? 'up' : 'neutral',
+          icon: Calendar,
+          iconBg: 'bg-indigo-100',
+          iconColor: 'text-indigo-600',
+        },
+        {
+          label: 'Partners',
+          value: formatNumber(stats.partnersCount),
+          change: stats.pendingPartnersCount > 0 ? `${stats.pendingPartnersCount} in review` : stats.partnersCount > 0 ? 'Alle actief' : 'Nog geen partners',
+          trend: stats.partnersCount > 0 ? 'up' : 'neutral',
+          icon: Users,
+          iconBg: 'bg-amber-100',
+          iconColor: 'text-amber-600',
+        },
+        {
+          label: "Studio's",
+          value: formatNumber(stats.studiosCount),
+          change: stats.studiosCount > 0 ? 'Actief' : 'Nog geen studios',
+          trend: stats.studiosCount > 0 ? 'up' : 'neutral',
+          icon: Building2,
+          iconBg: 'bg-purple-100',
+          iconColor: 'text-purple-600',
+        },
+      ]
+    : []
+
+  // Build recent activity from real data
+  const recentActivity = recentBookings.map((booking: any, index: number) => ({
+    id: booking.id || index,
+    type: 'booking' as const,
+    icon: Calendar,
+    iconBg: 'bg-indigo-100',
+    iconColor: 'text-indigo-600',
+    title: `Boeking ${booking.status || 'aangemaakt'}`,
+    description: booking.studio?.title || 'Studio',
+    time: booking.created_at
+      ? new Date(booking.created_at).toLocaleDateString('nl-NL', {
+          day: 'numeric',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : '',
+  }))
+
+  // Pending tasks based on real counts
+  const pendingTasks = stats
+    ? [
+        ...(stats.pendingPartnersCount > 0
+          ? [
+              {
+                id: 'partner-review',
+                title: 'Partner aanvragen beoordelen',
+                count: stats.pendingPartnersCount,
+                priority: 'high' as const,
+                icon: Users,
+                href: '/partners',
+              },
+            ]
+          : []),
+        ...(stats.pendingBookingsCount > 0
+          ? [
+              {
+                id: 'pending-bookings',
+                title: 'Boekingen goedkeuren',
+                count: stats.pendingBookingsCount,
+                priority: 'medium' as const,
+                icon: Calendar,
+                href: '/bookings',
+              },
+            ]
+          : []),
+      ]
+    : []
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -275,7 +303,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-black text-gray-900 tracking-tight">
-            Welcome back, Rivaldo
+            Welcome back{userName ? `, ${userName}` : ''}
           </h1>
           <p className="text-gray-500 mt-1 font-medium">{formattedDate}</p>
         </div>
@@ -287,45 +315,47 @@ export default function DashboardPage() {
 
       {/* Metrics Grid */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {metrics.map((metric) => {
-          const Icon = metric.icon
-          return (
-            <div
-              key={metric.label}
-              className="bg-white rounded-2xl p-6 shadow-lg shadow-gray-200/50 border border-gray-100 hover:shadow-xl hover:shadow-gray-200/50 transition-all duration-300"
-            >
-              <div className="flex items-start justify-between">
+        {loading
+          ? [1, 2, 3, 4].map((i) => <SkeletonCard key={i} />)
+          : metrics.map((metric) => {
+              const Icon = metric.icon
+              return (
                 <div
-                  className={cn(
-                    'w-12 h-12 rounded-xl flex items-center justify-center',
-                    metric.iconBg
-                  )}
+                  key={metric.label}
+                  className="bg-white rounded-2xl p-6 shadow-lg shadow-gray-200/50 border border-gray-100 hover:shadow-xl hover:shadow-gray-200/50 transition-all duration-300"
                 >
-                  <Icon className={cn('h-6 w-6', metric.iconColor)} />
+                  <div className="flex items-start justify-between">
+                    <div
+                      className={cn(
+                        'w-12 h-12 rounded-xl flex items-center justify-center',
+                        metric.iconBg
+                      )}
+                    >
+                      <Icon className={cn('h-6 w-6', metric.iconColor)} />
+                    </div>
+                    <div
+                      className={cn(
+                        'flex items-center gap-1 text-sm font-semibold',
+                        metric.trend === 'up'
+                          ? 'text-emerald-600'
+                          : metric.trend === 'down'
+                            ? 'text-rose-600'
+                            : 'text-gray-500'
+                      )}
+                    >
+                      {metric.trend === 'up' && <TrendingUp className="h-4 w-4" />}
+                      {metric.trend === 'down' && <TrendingDown className="h-4 w-4" />}
+                      {metric.trend === 'neutral' && <CheckCircle2 className="h-4 w-4 text-gray-400" />}
+                      <span>{metric.change}</span>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <p className="text-3xl font-black text-gray-900">{metric.value}</p>
+                    <p className="text-sm text-gray-500 font-medium mt-1">{metric.label}</p>
+                  </div>
                 </div>
-                <div
-                  className={cn(
-                    'flex items-center gap-1 text-sm font-semibold',
-                    metric.trend === 'up'
-                      ? 'text-emerald-600'
-                      : metric.trend === 'down'
-                        ? 'text-rose-600'
-                        : 'text-gray-500'
-                  )}
-                >
-                  {metric.trend === 'up' && <TrendingUp className="h-4 w-4" />}
-                  {metric.trend === 'down' && <TrendingDown className="h-4 w-4" />}
-                  {metric.trend === 'neutral' && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
-                  <span>{metric.change}</span>
-                </div>
-              </div>
-              <div className="mt-4">
-                <p className="text-3xl font-black text-gray-900">{metric.value}</p>
-                <p className="text-sm text-gray-500 font-medium mt-1">{metric.label}</p>
-              </div>
-            </div>
-          )
-        })}
+              )
+            })}
       </div>
 
       {/* Main Content Grid */}
@@ -335,7 +365,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-xl font-bold text-gray-900">Revenue vs Payouts</h2>
-              <p className="text-sm text-gray-500 mt-1">Monthly comparison for 2024</p>
+              <p className="text-sm text-gray-500 mt-1">Totaaloverzicht</p>
             </div>
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
@@ -348,155 +378,239 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-          <RevenueChart />
+          {loading ? (
+            <div className="animate-pulse space-y-4 py-4">
+              <div className="h-3 bg-gray-200 rounded-full w-full" />
+              <div className="h-3 bg-gray-200 rounded-full w-3/4" />
+            </div>
+          ) : (
+            <RevenueChart
+              revenue={stats?.totalRevenue || 0}
+              payouts={stats?.totalPayouts || 0}
+            />
+          )}
         </div>
 
         {/* Recent Activity */}
         <div className="lg:col-span-4 bg-white rounded-2xl p-6 shadow-lg shadow-gray-200/50 border border-gray-100">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-900">Recent Activity</h2>
-            <button className="text-sm text-indigo-600 font-semibold hover:text-indigo-700 flex items-center gap-1">
-              View all <ArrowUpRight className="h-4 w-4" />
-            </button>
+            <h2 className="text-xl font-bold text-gray-900">Recente Activiteit</h2>
+            {recentActivity.length > 0 && (
+              <Link
+                href="/bookings"
+                className="text-sm text-indigo-600 font-semibold hover:text-indigo-700 flex items-center gap-1"
+              >
+                Bekijk alles <ArrowUpRight className="h-4 w-4" />
+              </Link>
+            )}
           </div>
-          <div className="space-y-4">
-            {recentActivity.map((activity) => {
-              const Icon = activity.icon
-              return (
-                <div key={activity.id} className="flex items-start gap-3">
-                  <div
-                    className={cn(
-                      'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0',
-                      activity.iconBg
-                    )}
-                  >
-                    <Icon className={cn('h-5 w-5', activity.iconColor)} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900">{activity.title}</p>
-                    <p className="text-sm text-gray-500 truncate">{activity.description}</p>
-                    <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
+          {loading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-start gap-3 animate-pulse">
+                  <div className="w-10 h-10 rounded-xl bg-gray-200 flex-shrink-0" />
+                  <div className="flex-1">
+                    <div className="w-32 h-4 rounded bg-gray-200" />
+                    <div className="w-48 h-3 rounded bg-gray-200 mt-2" />
                   </div>
                 </div>
-              )
-            })}
-          </div>
+              ))}
+            </div>
+          ) : recentActivity.length > 0 ? (
+            <div className="space-y-4">
+              {recentActivity.map((activity) => {
+                const Icon = activity.icon
+                return (
+                  <div key={activity.id} className="flex items-start gap-3">
+                    <div
+                      className={cn(
+                        'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0',
+                        activity.iconBg
+                      )}
+                    >
+                      <Icon className={cn('h-5 w-5', activity.iconColor)} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">{activity.title}</p>
+                      <p className="text-sm text-gray-500 truncate">{activity.description}</p>
+                      <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <EmptyState
+              icon={Inbox}
+              title="Nog geen activiteit"
+              description="Zodra er boekingen, partners of transacties zijn, verschijnt de activiteit hier."
+            />
+          )}
         </div>
       </div>
 
       {/* Bottom Grid */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Studio Occupancy */}
+        {/* Studio Overview */}
         <div className="bg-white rounded-2xl p-6 shadow-lg shadow-gray-200/50 border border-gray-100">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Studio Occupancy</h2>
-              <p className="text-sm text-gray-500 mt-1">Current booking utilization</p>
+              <h2 className="text-xl font-bold text-gray-900">Studio Overzicht</h2>
+              <p className="text-sm text-gray-500 mt-1">Alle studio&apos;s op het platform</p>
             </div>
             <div className="flex items-center gap-2">
               <Building2 className="h-5 w-5 text-gray-400" />
-              <span className="text-sm font-semibold text-gray-600">4 Studios</span>
+              <span className="text-sm font-semibold text-gray-600">
+                {loading ? '...' : `${studios.length} Studio${studios.length !== 1 ? "'s" : ''}`}
+              </span>
             </div>
           </div>
-          <div className="space-y-5">
-            {studioOccupancy.map((studio) => (
-              <div key={studio.name}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">{studio.name}</span>
-                  <span
-                    className={cn(
-                      'text-sm font-bold',
-                      studio.occupancy >= 90
-                        ? 'text-amber-600'
-                        : studio.occupancy >= 70
-                          ? 'text-emerald-600'
-                          : 'text-gray-600'
-                    )}
-                  >
-                    {studio.occupancy}%
-                  </span>
+          {loading ? (
+            <div className="space-y-4 animate-pulse">
+              {[1, 2, 3].map((i) => (
+                <div key={i}>
+                  <div className="w-48 h-4 rounded bg-gray-200 mb-2" />
+                  <div className="h-2.5 bg-gray-200 rounded-full" />
                 </div>
-                <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className={cn('h-full rounded-full transition-all duration-500', studio.color)}
-                    style={{ width: `${studio.occupancy}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : studios.length > 0 ? (
+            <div className="space-y-5">
+              {studios.map((studio, index) => {
+                const colors = ['bg-indigo-500', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500']
+                const isActive = studio.status === 'active'
+                return (
+                  <div key={studio.id}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">{studio.title}</span>
+                      <span
+                        className={cn(
+                          'text-xs font-semibold px-2 py-0.5 rounded-full',
+                          isActive
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-gray-100 text-gray-600'
+                        )}
+                      >
+                        {studio.status || 'draft'}
+                      </span>
+                    </div>
+                    <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className={cn('h-full rounded-full transition-all duration-500', colors[index % colors.length])}
+                        style={{ width: isActive ? '100%' : '30%' }}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <EmptyState
+              icon={Building2}
+              title="Nog geen studio's toegevoegd"
+              description="Voeg je eerste studio toe om boekingen te ontvangen."
+              actionLabel="Studio toevoegen"
+              actionHref="/studios"
+            />
+          )}
         </div>
 
         {/* Pending Tasks */}
         <div className="bg-white rounded-2xl p-6 shadow-lg shadow-gray-200/50 border border-gray-100">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Pending Tasks</h2>
-              <p className="text-sm text-gray-500 mt-1">Items requiring your attention</p>
+              <h2 className="text-xl font-bold text-gray-900">Openstaande Taken</h2>
+              <p className="text-sm text-gray-500 mt-1">Items die je aandacht nodig hebben</p>
             </div>
-            <span className="bg-rose-100 text-rose-700 text-sm font-bold px-3 py-1 rounded-full">
-              {pendingTasks.reduce((acc, task) => acc + task.count, 0)} Total
-            </span>
+            {pendingTasks.length > 0 && (
+              <span className="bg-rose-100 text-rose-700 text-sm font-bold px-3 py-1 rounded-full">
+                {pendingTasks.reduce((acc, task) => acc + task.count, 0)} Totaal
+              </span>
+            )}
           </div>
-          <div className="space-y-3">
-            {pendingTasks.map((task) => {
-              const Icon = task.icon
-              return (
-                <div
-                  key={task.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer group"
-                >
+          {loading ? (
+            <div className="space-y-3 animate-pulse">
+              {[1, 2].map((i) => (
+                <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                   <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        'w-10 h-10 rounded-xl flex items-center justify-center',
-                        task.priority === 'high' ? 'bg-rose-100' : 'bg-amber-100'
-                      )}
-                    >
-                      <Icon
-                        className={cn(
-                          'h-5 w-5',
-                          task.priority === 'high' ? 'text-rose-600' : 'text-amber-600'
-                        )}
-                      />
-                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-gray-200" />
                     <div>
-                      <p className="text-sm font-semibold text-gray-900">{task.title}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        {task.priority === 'high' ? (
-                          <AlertCircle className="h-3.5 w-3.5 text-rose-500" />
-                        ) : (
-                          <Clock className="h-3.5 w-3.5 text-amber-500" />
+                      <div className="w-40 h-4 rounded bg-gray-200" />
+                      <div className="w-20 h-3 rounded bg-gray-200 mt-2" />
+                    </div>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-gray-200" />
+                </div>
+              ))}
+            </div>
+          ) : pendingTasks.length > 0 ? (
+            <div className="space-y-3">
+              {pendingTasks.map((task) => {
+                const Icon = task.icon
+                return (
+                  <Link
+                    key={task.id}
+                    href={task.href}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={cn(
+                          'w-10 h-10 rounded-xl flex items-center justify-center',
+                          task.priority === 'high' ? 'bg-rose-100' : 'bg-amber-100'
                         )}
-                        <span
+                      >
+                        <Icon
                           className={cn(
-                            'text-xs font-medium',
-                            task.priority === 'high' ? 'text-rose-500' : 'text-amber-500'
+                            'h-5 w-5',
+                            task.priority === 'high' ? 'text-rose-600' : 'text-amber-600'
                           )}
-                        >
-                          {task.priority === 'high' ? 'High Priority' : 'Medium Priority'}
-                        </span>
+                        />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{task.title}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {task.priority === 'high' ? (
+                            <AlertCircle className="h-3.5 w-3.5 text-rose-500" />
+                          ) : (
+                            <Clock className="h-3.5 w-3.5 text-amber-500" />
+                          )}
+                          <span
+                            className={cn(
+                              'text-xs font-medium',
+                              task.priority === 'high' ? 'text-rose-500' : 'text-amber-500'
+                            )}
+                          >
+                            {task.priority === 'high' ? 'Hoge Prioriteit' : 'Medium Prioriteit'}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="bg-white px-3 py-1 rounded-full text-sm font-bold text-gray-700 shadow-sm">
-                      {task.count}
-                    </span>
-                    <ArrowUpRight className="h-5 w-5 text-gray-400 group-hover:text-indigo-600 transition-colors" />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                    <div className="flex items-center gap-3">
+                      <span className="bg-white px-3 py-1 rounded-full text-sm font-bold text-gray-700 shadow-sm">
+                        {task.count}
+                      </span>
+                      <ArrowUpRight className="h-5 w-5 text-gray-400 group-hover:text-indigo-600 transition-colors" />
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          ) : (
+            <EmptyState
+              icon={CheckCircle2}
+              title="Alles bijgewerkt!"
+              description="Er zijn geen openstaande taken. Zodra er acties nodig zijn verschijnen ze hier."
+            />
+          )}
         </div>
       </div>
 
       {/* Footer Note */}
       <div className="flex items-center justify-center gap-4 text-gray-400 pt-4">
-        <span className="text-sm">🔒</span>
+        <span className="text-sm">*</span>
         <span className="text-xs font-medium uppercase tracking-widest">
-          Executive Dashboard • Real-time data
+          Executive Dashboard - Live data
         </span>
       </div>
     </div>

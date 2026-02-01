@@ -81,22 +81,62 @@ export interface Partner {
 
 export interface Customer {
   id: string
+  user_id?: string
+  full_name: string
   email: string
-  full_name?: string
-  avatar_url?: string
   phone?: string
-  bio?: string
-  location?: string
-  user_type?: 'renter' | 'host' | 'both'
-  stripe_customer_id?: string
-  is_verified?: boolean
-  email_notifications?: boolean
-  sms_notifications?: boolean
-  push_notifications?: boolean
-  marketing_emails?: boolean
-  two_factor_enabled?: boolean
+  company?: string
+  total_bookings: number
+  total_spent: number
   created_at?: string
   updated_at?: string
+}
+
+export interface Transaction {
+  id: string
+  booking_id?: string
+  partner_id?: string
+  type: string
+  amount: number
+  description?: string
+  status: string
+  created_at?: string
+}
+
+export interface SalesLead {
+  id: string
+  company_name: string
+  contact_name?: string
+  email?: string
+  phone?: string
+  city?: string
+  studio_type?: string
+  status: string
+  source?: string
+  notes?: string
+  last_contacted_at?: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface MarketingPost {
+  id: string
+  title: string
+  content?: string
+  platform?: string
+  scheduled_at?: string
+  published_at?: string
+  status: string
+  created_at?: string
+}
+
+export interface Document {
+  id: string
+  name: string
+  type?: string
+  file_url?: string
+  partner_id?: string
+  created_at?: string
 }
 
 export interface Booking {
@@ -242,11 +282,11 @@ export const partnersApi = {
   }
 }
 
-// Customers API functions (using users table)
+// Customers API functions (using customers table)
 export const customersApi = {
   async getAll() {
     const { data, error } = await supabase
-      .from('users')
+      .from('customers')
       .select('*')
       .order('created_at', { ascending: false })
 
@@ -256,7 +296,7 @@ export const customersApi = {
 
   async getById(id: string) {
     const { data, error } = await supabase
-      .from('users')
+      .from('customers')
       .select('*')
       .eq('id', id)
       .single()
@@ -267,7 +307,7 @@ export const customersApi = {
 
   async create(customer: Partial<Customer>) {
     const { data, error } = await supabase
-      .from('users')
+      .from('customers')
       .insert(customer)
       .select()
       .single()
@@ -278,7 +318,7 @@ export const customersApi = {
 
   async update(id: string, customer: Partial<Customer>) {
     const { data, error } = await supabase
-      .from('users')
+      .from('customers')
       .update(customer)
       .eq('id', id)
       .select()
@@ -290,7 +330,7 @@ export const customersApi = {
 
   async delete(id: string) {
     const { error } = await supabase
-      .from('users')
+      .from('customers')
       .delete()
       .eq('id', id)
 
@@ -340,4 +380,451 @@ export const bookingsApi = {
     if (error) throw error
     return data
   }
+}
+
+// Dashboard API functions
+export const dashboardApi = {
+  async getStats() {
+    const [
+      { count: studiosCount },
+      { count: bookingsCount },
+      { count: activeBookingsCount },
+      { count: pendingBookingsCount },
+      { count: partnersCount },
+      { count: pendingPartnersCount },
+      { count: usersCount },
+      { data: revenueData },
+      { data: payoutsData },
+    ] = await Promise.all([
+      supabase.from('studios').select('*', { count: 'exact', head: true }),
+      supabase.from('bookings').select('*', { count: 'exact', head: true }),
+      supabase.from('bookings').select('*', { count: 'exact', head: true }).in('status', ['confirmed', 'pending']),
+      supabase.from('bookings').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('partners').select('*', { count: 'exact', head: true }),
+      supabase.from('partners').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('users').select('*', { count: 'exact', head: true }),
+      supabase.from('transactions').select('amount').eq('type', 'booking_revenue'),
+      supabase.from('payouts').select('amount'),
+    ])
+
+    const totalRevenue = (revenueData || []).reduce((sum: number, t: { amount: number }) => sum + Number(t.amount), 0)
+    const totalPayouts = (payoutsData || []).reduce((sum: number, p: { amount: number }) => sum + Number(p.amount), 0)
+
+    return {
+      studiosCount: studiosCount || 0,
+      bookingsCount: bookingsCount || 0,
+      activeBookingsCount: activeBookingsCount || 0,
+      pendingBookingsCount: pendingBookingsCount || 0,
+      partnersCount: partnersCount || 0,
+      pendingPartnersCount: pendingPartnersCount || 0,
+      usersCount: usersCount || 0,
+      totalRevenue,
+      totalPayouts,
+    }
+  },
+
+  async getRecentBookings(limit = 5) {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select(`
+        *,
+        studio:studios(id, title, location),
+        customer:users!bookings_renter_id_fkey(id, full_name, email)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (error) throw error
+    return data || []
+  },
+
+  async getRecentPartners(limit = 5) {
+    const { data, error } = await supabase
+      .from('partners')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (error) throw error
+    return data || []
+  },
+
+  async getStudios() {
+    const { data, error } = await supabase
+      .from('studios')
+      .select('id, title, status')
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  },
+
+  async getRecentTransactions(limit = 5) {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (error) throw error
+    return data || []
+  },
+}
+
+// Transactions API functions
+export const transactionsApi = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select(`
+        *,
+        partner:partners(id, company_name)
+      `)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data as (Transaction & { partner?: { id: string; company_name: string } })[]
+  },
+
+  async getByPartner(partnerId: string) {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('partner_id', partnerId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data as Transaction[]
+  },
+}
+
+// Sales Leads API functions
+export const salesLeadsApi = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from('sales_leads')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data as SalesLead[]
+  },
+
+  async getById(id: string) {
+    const { data, error } = await supabase
+      .from('sales_leads')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error) throw error
+    return data as SalesLead
+  },
+
+  async create(lead: Partial<SalesLead>) {
+    const { data, error } = await supabase
+      .from('sales_leads')
+      .insert(lead)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data as SalesLead
+  },
+
+  async update(id: string, lead: Partial<SalesLead>) {
+    const { data, error } = await supabase
+      .from('sales_leads')
+      .update(lead)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data as SalesLead
+  },
+
+  async delete(id: string) {
+    const { error } = await supabase
+      .from('sales_leads')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  },
+}
+
+// Marketing API functions
+export const marketingApi = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from('marketing_posts')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data as MarketingPost[]
+  },
+
+  async getById(id: string) {
+    const { data, error } = await supabase
+      .from('marketing_posts')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error) throw error
+    return data as MarketingPost
+  },
+
+  async create(post: Partial<MarketingPost>) {
+    const { data, error } = await supabase
+      .from('marketing_posts')
+      .insert(post)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data as MarketingPost
+  },
+
+  async update(id: string, post: Partial<MarketingPost>) {
+    const { data, error } = await supabase
+      .from('marketing_posts')
+      .update(post)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data as MarketingPost
+  },
+
+  async delete(id: string) {
+    const { error } = await supabase
+      .from('marketing_posts')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  },
+}
+
+// Documents API functions
+export const documentsApi = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from('documents')
+      .select(`
+        *,
+        partner:partners(id, company_name)
+      `)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data as (Document & { partner?: { id: string; company_name: string } })[]
+  },
+
+  async getByPartner(partnerId: string) {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('partner_id', partnerId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data as Document[]
+  },
+
+  async create(doc: Partial<Document>) {
+    const { data, error } = await supabase
+      .from('documents')
+      .insert(doc)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data as Document
+  },
+
+  async delete(id: string) {
+    const { error } = await supabase
+      .from('documents')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  },
+}
+
+// Finance API functions
+export const financeApi = {
+  async getRevenueByStudio() {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select(`
+        subtotal,
+        studio:studios(id, name)
+      `)
+
+    if (error) throw error
+
+    const revenueMap: Record<string, { name: string; revenue: number }> = {}
+    for (const booking of data || []) {
+      const studio = booking.studio as unknown as { id: string; name: string } | null
+      const studioName = studio?.name || 'Onbekend'
+      const studioId = studio?.id || 'unknown'
+      if (!revenueMap[studioId]) {
+        revenueMap[studioId] = { name: studioName, revenue: 0 }
+      }
+      revenueMap[studioId].revenue += Number(booking.subtotal) || 0
+    }
+
+    const entries = Object.values(revenueMap).sort((a, b) => b.revenue - a.revenue)
+    const total = entries.reduce((sum, e) => sum + e.revenue, 0)
+    return entries.map(e => ({
+      ...e,
+      percentage: total > 0 ? Math.round((e.revenue / total) * 100) : 0,
+    }))
+  },
+
+  async getOverview() {
+    const [
+      { data: transactionsData },
+      { data: bookingsData },
+    ] = await Promise.all([
+      supabase.from('transactions').select('amount, type, status'),
+      supabase.from('bookings').select('subtotal, platform_fee, partner_payout'),
+    ])
+
+    const totalRevenue = (bookingsData || []).reduce((sum, b) => sum + (Number(b.subtotal) || 0), 0)
+    const platformFees = (bookingsData || []).reduce((sum, b) => sum + (Number(b.platform_fee) || 0), 0)
+    const partnerPayouts = (bookingsData || []).reduce((sum, b) => sum + (Number(b.partner_payout) || 0), 0)
+    const pendingPayouts = (transactionsData || [])
+      .filter(t => t.status === 'pending')
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
+
+    return { totalRevenue, platformFees, partnerPayouts, pendingPayouts }
+  },
+}
+
+// Analytics API functions
+export const analyticsApi = {
+  async getBookingTrends() {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('created_at')
+      .order('created_at', { ascending: true })
+
+    if (error) throw error
+
+    const monthCounts: Record<string, number> = {}
+    for (const booking of data || []) {
+      const date = new Date(booking.created_at)
+      const key = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+      monthCounts[key] = (monthCounts[key] || 0) + 1
+    }
+
+    return Object.entries(monthCounts).map(([month, bookings]) => ({ month, bookings }))
+  },
+
+  async getStudioTypeDistribution() {
+    const { data, error } = await supabase
+      .from('studios')
+      .select('type')
+
+    if (error) throw error
+
+    const typeCounts: Record<string, number> = {}
+    for (const studio of data || []) {
+      const type = studio.type || 'Other'
+      typeCounts[type] = (typeCounts[type] || 0) + 1
+    }
+
+    const colors = ['#6366F1', '#F97316', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6', '#06B6D4']
+    return Object.entries(typeCounts).map(([name, value], i) => ({
+      name,
+      value,
+      color: colors[i % colors.length],
+    }))
+  },
+
+  async getTopStudios() {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select(`
+        subtotal,
+        studio:studios(id, name)
+      `)
+
+    if (error) throw error
+
+    const studioMap: Record<string, { name: string; bookings: number; revenue: number }> = {}
+    for (const booking of data || []) {
+      const studio = booking.studio as unknown as { id: string; name: string } | null
+      const studioId = studio?.id || 'unknown'
+      const studioName = studio?.name || 'Onbekend'
+      if (!studioMap[studioId]) {
+        studioMap[studioId] = { name: studioName, bookings: 0, revenue: 0 }
+      }
+      studioMap[studioId].bookings += 1
+      studioMap[studioId].revenue += Number(booking.subtotal) || 0
+    }
+
+    return Object.values(studioMap).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
+  },
+
+  async getRatingTrend() {
+    const { data, error } = await supabase
+      .from('studios')
+      .select('rating')
+
+    if (error) throw error
+
+    const avgRating = (data || []).length > 0
+      ? (data || []).reduce((sum, s) => sum + (Number(s.rating) || 0), 0) / (data || []).length
+      : 0
+
+    return { avgRating: Math.round(avgRating * 10) / 10 }
+  },
+
+  async getOverviewStats() {
+    const [
+      { count: totalBookings },
+      { count: totalStudios },
+      { count: totalCustomers },
+      { data: revenueData },
+    ] = await Promise.all([
+      supabase.from('bookings').select('*', { count: 'exact', head: true }),
+      supabase.from('studios').select('*', { count: 'exact', head: true }),
+      supabase.from('customers').select('*', { count: 'exact', head: true }),
+      supabase.from('bookings').select('subtotal'),
+    ])
+
+    const totalRevenue = (revenueData || []).reduce((sum, b) => sum + (Number(b.subtotal) || 0), 0)
+
+    return {
+      totalBookings: totalBookings || 0,
+      totalStudios: totalStudios || 0,
+      totalCustomers: totalCustomers || 0,
+      totalRevenue,
+    }
+  },
+}
+
+// Profiles API (for user info)
+export const profilesApi = {
+  async getCurrent() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+
+    if (error) return null
+    return data as { id: string; email: string | null; full_name: string | null; avatar_url: string | null; role: string }
+  },
 }

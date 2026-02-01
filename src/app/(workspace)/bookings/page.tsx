@@ -19,78 +19,13 @@ import {
   Mail,
   Phone,
   MapPin,
+  Loader2,
+  Inbox,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-
-// Mock booking data
-const mockBookings = [
-  {
-    id: 'BK-8829',
-    customer: {
-      name: 'Alex Rivera',
-      email: 'alex@creativelab.com',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100',
-    },
-    studio: 'Studio Alpha',
-    date: 'Oct 24, 2023',
-    time: '10:00 AM - 12:30 PM',
-    price: '$125.00',
-    status: 'confirmed',
-  },
-  {
-    id: 'BK-8830',
-    customer: {
-      name: 'Jordan Smith',
-      email: 'j.smith@media.co',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
-    },
-    studio: 'Podcast Suite',
-    date: 'Oct 25, 2023',
-    time: '02:00 PM - 04:00 PM',
-    price: '$80.00',
-    status: 'pending',
-  },
-  {
-    id: 'BK-8831',
-    customer: {
-      name: 'Maya Chen',
-      email: 'maya@vision.io',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100',
-    },
-    studio: 'Infinity Wall',
-    date: 'Oct 26, 2023',
-    time: '09:00 AM - 05:00 PM',
-    price: '$450.00',
-    status: 'completed',
-  },
-  {
-    id: 'BK-8832',
-    customer: {
-      name: 'David Lee',
-      email: 'david@startup.io',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100',
-    },
-    studio: 'Green Screen Room',
-    date: 'Oct 27, 2023',
-    time: '11:00 AM - 03:00 PM',
-    price: '$280.00',
-    status: 'confirmed',
-  },
-]
-
-// Calendar events for specific days
-const calendarEvents: Record<number, { title: string; color: string }[]> = {
-  2: [{ title: 'Studio A: 10AM - Podcast Session', color: 'bg-indigo-100 text-indigo-600 border-indigo-200' }],
-  4: [{ title: 'Studio B: 1PM - Video Shoot', color: 'bg-emerald-50 text-emerald-600 border-emerald-100' }],
-  6: [{ title: 'Pending: 4PM - Studio C', color: 'bg-amber-50 text-amber-600 border-amber-100' }],
-  10: [{ title: '2PM - Creative Workshop', color: 'bg-indigo-100 text-indigo-600 border-indigo-200' }],
-  15: [{ title: 'Studio D: 9AM - Full Day', color: 'bg-emerald-50 text-emerald-600 border-emerald-100' }],
-  18: [{ title: 'Photo Session: 2PM', color: 'bg-indigo-100 text-indigo-600 border-indigo-200' }],
-  22: [{ title: 'Podcast Recording', color: 'bg-indigo-100 text-indigo-600 border-indigo-200' }],
-  25: [{ title: 'Video Production', color: 'bg-emerald-50 text-emerald-600 border-emerald-100' }],
-}
+import { bookingsApi, studiosApi } from '@/lib/supabase'
 
 const statusConfig = {
   confirmed: {
@@ -294,12 +229,14 @@ function BookingCalendar({
   onNextMonth,
   viewMode,
   setViewMode,
+  bookings,
 }: {
   currentDate: Date
   onPrevMonth: () => void
   onNextMonth: () => void
   viewMode: 'month' | 'week' | 'list'
   setViewMode: (mode: 'month' | 'week' | 'list') => void
+  bookings: any[]
 }) {
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -321,6 +258,25 @@ function BookingCalendar({
   }
   for (let day = 1; day <= daysInMonth; day++) {
     calendarDays.push(day)
+  }
+
+  // Build calendar events from real bookings
+  const calendarEvents: Record<number, { title: string; color: string }[]> = {}
+  for (const booking of bookings) {
+    if (!booking.date) continue
+    const bookingDate = new Date(booking.date)
+    if (bookingDate.getMonth() === month && bookingDate.getFullYear() === year) {
+      const day = bookingDate.getDate()
+      const studio = (booking.studio as any)?.title || (booking.studio as any)?.name || 'Studio'
+      const time = booking.start_time || ''
+      const statusColor = booking.status === 'confirmed'
+        ? 'bg-indigo-100 text-indigo-600 border-indigo-200'
+        : booking.status === 'pending'
+        ? 'bg-amber-50 text-amber-600 border-amber-100'
+        : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+      if (!calendarEvents[day]) calendarEvents[day] = []
+      calendarEvents[day].push({ title: `${studio}: ${time}`, color: statusColor })
+    }
   }
 
   const today = new Date()
@@ -437,7 +393,7 @@ function BookingCalendar({
 }
 
 // Bookings Table Component
-function BookingsTable({ bookings }: { bookings: typeof mockBookings }) {
+function BookingsTable({ bookings }: { bookings: any[] }) {
   return (
     <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
       <table className="w-full text-left">
@@ -463,7 +419,23 @@ function BookingsTable({ bookings }: { bookings: typeof mockBookings }) {
         </thead>
         <tbody className="divide-y divide-gray-100">
           {bookings.map((booking) => {
-            const status = statusConfig[booking.status as keyof typeof statusConfig]
+            const status = statusConfig[booking.status as keyof typeof statusConfig] || statusConfig.pending
+            const customer = booking.customer as any
+            const studio = booking.studio as any
+            const customerName = customer?.full_name || 'Onbekende klant'
+            const customerEmail = customer?.email || ''
+            const customerAvatar = customer?.avatar_url || ''
+            const studioName = studio?.title || studio?.name || 'Studio'
+            const bookingDate = booking.date
+              ? new Date(booking.date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })
+              : ''
+            const bookingTime = booking.start_time && booking.end_time
+              ? `${booking.start_time} - ${booking.end_time}`
+              : ''
+            const price = booking.subtotal != null
+              ? new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(Number(booking.subtotal))
+              : '—'
+
             return (
               <tr
                 key={booking.id}
@@ -471,27 +443,33 @@ function BookingsTable({ bookings }: { bookings: typeof mockBookings }) {
               >
                 <td className="px-6 py-5">
                   <Link href={`/bookings/${booking.id}`} className="flex items-center gap-3">
-                    <div
-                      className="w-10 h-10 rounded-full bg-gray-200 bg-cover bg-center"
-                      style={{ backgroundImage: `url(${booking.customer.avatar})` }}
-                    />
+                    {customerAvatar ? (
+                      <div
+                        className="w-10 h-10 rounded-full bg-gray-200 bg-cover bg-center"
+                        style={{ backgroundImage: `url(${customerAvatar})` }}
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm">
+                        {customerName.charAt(0)}
+                      </div>
+                    )}
                     <div>
-                      <p className="font-bold text-gray-900">{booking.customer.name}</p>
-                      <p className="text-xs text-gray-500">{booking.customer.email}</p>
+                      <p className="font-bold text-gray-900">{customerName}</p>
+                      <p className="text-xs text-gray-500">{customerEmail}</p>
                     </div>
                   </Link>
                 </td>
                 <td className="px-6 py-5">
                   <span className="px-3 py-1 bg-gray-100 rounded-full text-xs font-bold text-gray-600">
-                    {booking.studio}
+                    {studioName}
                   </span>
                 </td>
                 <td className="px-6 py-5">
-                  <p className="text-sm font-semibold text-gray-900">{booking.date}</p>
-                  <p className="text-xs text-gray-500">{booking.time}</p>
+                  <p className="text-sm font-semibold text-gray-900">{bookingDate}</p>
+                  <p className="text-xs text-gray-500">{bookingTime}</p>
                 </td>
                 <td className="px-6 py-5">
-                  <span className="font-bold text-gray-900">{booking.price}</span>
+                  <span className="font-bold text-gray-900">{price}</span>
                 </td>
                 <td className="px-6 py-5">
                   <span
@@ -527,9 +505,26 @@ function BookingsTable({ bookings }: { bookings: typeof mockBookings }) {
 
 // Main Bookings Page
 export default function BookingsPage() {
-  const [currentDate, setCurrentDate] = useState(new Date(2023, 9, 1)) // October 2023
+  const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'list'>('month')
   const [showManualBooking, setShowManualBooking] = useState(false)
+  const [bookings, setBookings] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchBookings() {
+      try {
+        const data = await bookingsApi.getAll()
+        setBookings(data || [])
+      } catch (error) {
+        console.error('Error fetching bookings:', error)
+        setBookings([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchBookings()
+  }, [])
 
   const handlePrevMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
@@ -537,6 +532,14 @@ export default function BookingsPage() {
 
   const handleNextMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    )
   }
 
   return (
@@ -571,18 +574,31 @@ export default function BookingsPage() {
         onNextMonth={handleNextMonth}
         viewMode={viewMode}
         setViewMode={setViewMode}
+        bookings={bookings}
       />
 
       {/* Upcoming Bookings */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-black text-gray-900">Upcoming Bookings</h2>
-          <button className="text-indigo-600 font-bold text-sm hover:underline">
-            View All
-          </button>
+      {bookings.length > 0 ? (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-black text-gray-900">Upcoming Bookings</h2>
+          </div>
+          <BookingsTable bookings={bookings} />
         </div>
-        <BookingsTable bookings={mockBookings} />
-      </div>
+      ) : (
+        <div className="text-center py-16 bg-white rounded-3xl border border-gray-100">
+          <Inbox className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">Nog geen boekingen</h3>
+          <p className="text-gray-500 mb-6">Zodra er boekingen binnenkomen verschijnen ze hier.</p>
+          <Button
+            className="rounded-full h-11 px-6 shadow-lg shadow-indigo-200"
+            onClick={() => setShowManualBooking(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Boeking Aanmaken
+          </Button>
+        </div>
+      )}
 
       {/* Manual Booking Modal */}
       <ManualBookingModal

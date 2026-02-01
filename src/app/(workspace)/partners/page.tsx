@@ -42,76 +42,6 @@ interface PartnerDisplay {
   image: string
 }
 
-// Fallback data for when database is empty
-const fallbackPartners: PartnerDisplay[] = [
-  {
-    id: '1',
-    company_name: 'Lumina Yoga',
-    contact_name: 'Sarah Chen',
-    location: 'Downtown San Francisco, CA',
-    status: 'active',
-    type: 'Yoga',
-    bookings_per_month: 142,
-    revenue_share: 15,
-    image: 'https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=200',
-  },
-  {
-    id: '2',
-    company_name: 'Core Pilates',
-    contact_name: 'Marc J. Peterson',
-    location: 'Brooklyn Heights, NY',
-    status: 'active',
-    type: 'Pilates',
-    bookings_per_month: 89,
-    revenue_share: 12.5,
-    image: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=200',
-  },
-  {
-    id: '3',
-    company_name: 'Summit Peak',
-    contact_name: 'Elena Rodriguez',
-    location: 'Austin, TX',
-    status: 'pending',
-    type: 'Crossfit',
-    bookings_per_month: 0,
-    revenue_share: 20,
-    image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=200',
-  },
-  {
-    id: '4',
-    company_name: 'Velocity Hub',
-    contact_name: 'David Miller',
-    location: 'London, UK',
-    status: 'active',
-    type: 'Cycling',
-    bookings_per_month: 215,
-    revenue_share: 18,
-    image: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=200',
-  },
-  {
-    id: '5',
-    company_name: 'Sunlight Studios',
-    contact_name: 'Jessica Martinez',
-    location: 'Los Angeles, CA',
-    status: 'active',
-    type: 'Photo',
-    bookings_per_month: 128,
-    revenue_share: 15,
-    image: 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=200',
-  },
-  {
-    id: '6',
-    company_name: 'Echo Sound',
-    contact_name: 'David Chen',
-    location: 'New York, NY',
-    status: 'inactive',
-    type: 'Music',
-    bookings_per_month: 56,
-    revenue_share: 15,
-    image: 'https://images.unsplash.com/photo-1598653222000-6b7b7a552625?w=200',
-  },
-]
-
 const statusConfig = {
   active: {
     label: 'Active',
@@ -897,27 +827,20 @@ export default function PartnersPage() {
     async function fetchPartners() {
       try {
         const data = await partnersApi.getAll()
-        if (data && data.length > 0) {
-          // Map Supabase data to display format
-          setPartners(data.map((p: Partner) => ({
-            id: p.id,
-            company_name: p.company_name,
-            contact_name: p.contact_name,
-            location: [p.city, p.country].filter(Boolean).join(', ') || 'Unknown',
-            status: p.status,
-            type: p.tier || 'standard',
-            bookings_per_month: p.studios_count || 0,
-            revenue_share: p.commission_rate || 15,
-            image: p.avatar_url || '',
-          })))
-        } else {
-          // Use fallback data if database is empty
-          setPartners(fallbackPartners)
-        }
+        setPartners((data || []).map((p: Partner) => ({
+          id: p.id,
+          company_name: p.company_name || '',
+          contact_name: p.contact_name,
+          location: p.city || '',
+          status: p.status,
+          type: p.tier || 'standard',
+          bookings_per_month: p.studios_count || 0,
+          revenue_share: p.commission_rate || 15,
+          image: p.avatar_url || '',
+        })))
       } catch (error) {
         console.error('Error fetching partners:', error)
-        // Use fallback data on error
-        setPartners(fallbackPartners)
+        setPartners([])
       } finally {
         setLoading(false)
       }
@@ -1046,32 +969,49 @@ export default function PartnersPage() {
       </div>
 
       {/* Partner Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredPartners.map((partner) => (
-          <PartnerCard key={partner.id} partner={partner} />
-        ))}
+      {partners.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
+          <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">Nog geen partners</h3>
+          <p className="text-gray-500 mb-6">Voeg je eerste partner toe om je netwerk op te bouwen.</p>
+          <Button
+            className="rounded-full h-12 px-6 shadow-lg shadow-indigo-200"
+            onClick={() => setIsAddModalOpen(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Partner Toevoegen
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredPartners.map((partner) => (
+              <PartnerCard key={partner.id} partner={partner} />
+            ))}
 
-        {/* Add New Partner Card */}
-        <div
-          onClick={() => setIsAddModalOpen(true)}
-          className="bg-transparent border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-indigo-400 hover:bg-white transition-all cursor-pointer group min-h-[320px]"
-        >
-          <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-4 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-            <Plus className="h-8 w-8" />
+            {/* Add New Partner Card */}
+            <div
+              onClick={() => setIsAddModalOpen(true)}
+              className="bg-transparent border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:border-indigo-400 hover:bg-white transition-all cursor-pointer group min-h-[320px]"
+            >
+              <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-4 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                <Plus className="h-8 w-8" />
+              </div>
+              <p className="text-lg font-bold text-gray-900">Add New Partner</p>
+              <p className="text-sm text-gray-500 mt-2 px-6">
+                Expand your network by adding another studio partner.
+              </p>
+            </div>
           </div>
-          <p className="text-lg font-bold text-gray-900">Add New Partner</p>
-          <p className="text-sm text-gray-500 mt-2 px-6">
-            Expand your network by adding another studio partner.
-          </p>
-        </div>
-      </div>
 
-      {filteredPartners.length === 0 && (
-        <div className="text-center py-12 bg-gray-50 rounded-2xl">
-          <Search className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No partners found</h3>
-          <p className="text-gray-500">Try adjusting your filters or search query</p>
-        </div>
+          {filteredPartners.length === 0 && (
+            <div className="text-center py-12 bg-gray-50 rounded-2xl">
+              <Search className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Geen partners gevonden</h3>
+              <p className="text-gray-500">Pas je filters of zoekopdracht aan</p>
+            </div>
+          )}
+        </>
       )}
 
       {/* Add Partner Modal */}

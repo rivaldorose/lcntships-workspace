@@ -33,34 +33,6 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { studiosApi, type Studio } from '@/lib/supabase'
 
-// Fallback mock data for when database is empty
-const fallbackStudios = [
-  {
-    id: '1',
-    title: 'The North Loft',
-    location: 'Brooklyn, NY',
-    capacity: 12,
-    status: 'active',
-    images: ['https://images.unsplash.com/photo-1497366216548-37526070297c?w=800'],
-  },
-  {
-    id: '2',
-    title: 'Riverside Yoga Collective',
-    location: 'Berlin Mitte',
-    capacity: 5,
-    status: 'active',
-    images: ['https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=800'],
-  },
-  {
-    id: '3',
-    title: 'Zenith Meeting Hub',
-    location: 'London Shoreditch',
-    capacity: 8,
-    status: 'active',
-    images: ['https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=800'],
-  },
-]
-
 const statusConfig = {
   active: {
     label: 'Active',
@@ -678,25 +650,19 @@ export default function StudiosPage() {
     async function fetchStudios() {
       try {
         const data = await studiosApi.getAll()
-        if (data && data.length > 0) {
-          setStudios(data.map(s => ({
-            id: s.id,
-            title: s.title,
-            location: s.location,
-            capacity: s.capacity,
-            status: s.status,
-            images: s.images,
-            avg_rating: s.avg_rating,
-            total_reviews: s.total_reviews,
-          })))
-        } else {
-          // Use fallback data if database is empty
-          setStudios(fallbackStudios)
-        }
+        setStudios((data || []).map(s => ({
+          id: s.id,
+          title: s.title || (s as any).name || '',
+          location: s.location || s.city || '',
+          capacity: s.capacity,
+          status: s.status,
+          images: s.images,
+          avg_rating: s.avg_rating,
+          total_reviews: s.total_reviews,
+        })))
       } catch (error) {
         console.error('Error fetching studios:', error)
-        // Use fallback data on error
-        setStudios(fallbackStudios)
+        setStudios([])
       } finally {
         setLoading(false)
       }
@@ -777,6 +743,19 @@ export default function StudiosPage() {
           <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
           <span className="ml-3 text-gray-500">Loading studios...</span>
         </div>
+      ) : studios.length === 0 ? (
+        <div className="text-center py-20">
+          <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">Nog geen studio&apos;s</h3>
+          <p className="text-gray-500 mb-6">Voeg je eerste studio toe om boekingen te ontvangen.</p>
+          <Button
+            onClick={() => setIsAddModalOpen(true)}
+            className="rounded-full h-11 px-6 gap-2 shadow-lg shadow-indigo-200"
+          >
+            <Plus className="h-4 w-4" />
+            Studio Toevoegen
+          </Button>
+        </div>
       ) : filteredStudios.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredStudios.map((studio) => (
@@ -786,8 +765,8 @@ export default function StudiosPage() {
       ) : (
         <div className="text-center py-20">
           <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">No studios found</h3>
-          <p className="text-gray-500">Try adjusting your filters or search query</p>
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">Geen studio&apos;s gevonden</h3>
+          <p className="text-gray-500">Pas je filters of zoekopdracht aan</p>
         </div>
       )}
 

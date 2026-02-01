@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   Search,
@@ -26,193 +26,44 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Loader2,
+  Inbox,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { documentsApi } from '@/lib/supabase'
 
-// Mock data
-const pinnedDocuments = [
-  {
-    id: 'p1',
-    name: 'Partner Agreement Template.pdf',
-    type: 'pdf',
-    icon: FileText,
-    iconBg: 'bg-orange-100',
-    iconColor: 'text-orange-600',
-    starred: true,
-  },
-  {
-    id: 'p2',
-    name: 'Brand Guidelines 2024.pdf',
-    type: 'pdf',
-    icon: FileText,
-    iconBg: 'bg-orange-100',
-    iconColor: 'text-orange-600',
-    starred: true,
-  },
-  {
-    id: 'p3',
-    name: 'Commission Structure.xlsx',
-    type: 'spreadsheet',
-    icon: FileSpreadsheet,
-    iconBg: 'bg-emerald-100',
-    iconColor: 'text-emerald-600',
-    starred: true,
-  },
-  {
-    id: 'p4',
-    name: 'Onboarding Checklist.pdf',
-    type: 'pdf',
-    icon: FileText,
-    iconBg: 'bg-orange-100',
-    iconColor: 'text-orange-600',
-    starred: true,
-  },
-]
+// Helper to get icon info based on document type
+function getDocTypeIcon(type?: string): { icon: any; iconBg: string; iconColor: string } {
+  switch (type?.toLowerCase()) {
+    case 'pdf':
+      return { icon: FileText, iconBg: 'bg-orange-100', iconColor: 'text-orange-600' }
+    case 'image':
+    case 'png':
+    case 'jpg':
+    case 'jpeg':
+      return { icon: Image, iconBg: 'bg-blue-100', iconColor: 'text-blue-600' }
+    case 'spreadsheet':
+    case 'xlsx':
+    case 'csv':
+      return { icon: FileSpreadsheet, iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600' }
+    case 'video':
+    case 'mp4':
+      return { icon: Video, iconBg: 'bg-pink-100', iconColor: 'text-pink-600' }
+    case 'audio':
+    case 'mp3':
+      return { icon: Music, iconBg: 'bg-indigo-100', iconColor: 'text-indigo-600' }
+    default:
+      return { icon: File, iconBg: 'bg-purple-100', iconColor: 'text-purple-600' }
+  }
+}
 
-const recentDocuments = [
-  {
-    id: 'r1',
-    name: 'Studio Zenith Contract.pdf',
-    type: 'pdf',
-    icon: FileText,
-    iconBg: 'bg-orange-100',
-    iconColor: 'text-orange-600',
-    modified: '2 hours ago',
-    thumbnail: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=200',
-  },
-  {
-    id: 'r2',
-    name: 'Invoice_Dec_2024.pdf',
-    type: 'pdf',
-    icon: FileText,
-    iconBg: 'bg-orange-100',
-    iconColor: 'text-orange-600',
-    modified: '5 hours ago',
-    thumbnail: null,
-  },
-  {
-    id: 'r3',
-    name: 'Marketing Assets.zip',
-    type: 'archive',
-    icon: File,
-    iconBg: 'bg-purple-100',
-    iconColor: 'text-purple-600',
-    modified: 'Yesterday',
-    thumbnail: null,
-  },
-  {
-    id: 'r4',
-    name: 'Studio Photos.jpg',
-    type: 'image',
-    icon: Image,
-    iconBg: 'bg-blue-100',
-    iconColor: 'text-blue-600',
-    modified: '2 days ago',
-    thumbnail: 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=200',
-  },
-  {
-    id: 'r5',
-    name: 'Promo Video.mp4',
-    type: 'video',
-    icon: Video,
-    iconBg: 'bg-pink-100',
-    iconColor: 'text-pink-600',
-    modified: '3 days ago',
-    thumbnail: 'https://images.unsplash.com/photo-1574717024453-354056aafa98?w=200',
-  },
-]
-
-const folders = [
-  {
-    id: 'f1',
-    name: 'Contracts',
-    itemCount: 24,
-    color: 'bg-blue-500',
-  },
-  {
-    id: 'f2',
-    name: 'Invoices',
-    itemCount: 156,
-    color: 'bg-emerald-500',
-  },
-  {
-    id: 'f3',
-    name: 'Templates',
-    itemCount: 12,
-    color: 'bg-purple-500',
-  },
-  {
-    id: 'f4',
-    name: 'Marketing',
-    itemCount: 45,
-    color: 'bg-orange-500',
-  },
-]
-
-const files = [
-  {
-    id: 'd1',
-    name: 'Lumina_Yoga_Contract.pdf',
-    type: 'pdf',
-    icon: FileText,
-    iconBg: 'bg-orange-100',
-    iconColor: 'text-orange-600',
-    size: '2.4 MB',
-    modified: 'Dec 15, 2024',
-  },
-  {
-    id: 'd2',
-    name: 'Core_Pilates_Invoice.pdf',
-    type: 'pdf',
-    icon: FileText,
-    iconBg: 'bg-orange-100',
-    iconColor: 'text-orange-600',
-    size: '1.1 MB',
-    modified: 'Dec 12, 2024',
-  },
-  {
-    id: 'd3',
-    name: 'Revenue_Report_Q4.xlsx',
-    type: 'spreadsheet',
-    icon: FileSpreadsheet,
-    iconBg: 'bg-emerald-100',
-    iconColor: 'text-emerald-600',
-    size: '856 KB',
-    modified: 'Dec 10, 2024',
-  },
-  {
-    id: 'd4',
-    name: 'Studio_Promo_Video.mp4',
-    type: 'video',
-    icon: Video,
-    iconBg: 'bg-pink-100',
-    iconColor: 'text-pink-600',
-    size: '124 MB',
-    modified: 'Dec 8, 2024',
-  },
-  {
-    id: 'd5',
-    name: 'Brand_Assets.zip',
-    type: 'archive',
-    icon: File,
-    iconBg: 'bg-purple-100',
-    iconColor: 'text-purple-600',
-    size: '45 MB',
-    modified: 'Dec 5, 2024',
-  },
-  {
-    id: 'd6',
-    name: 'Podcast_Episode_12.mp3',
-    type: 'audio',
-    icon: Music,
-    iconBg: 'bg-indigo-100',
-    iconColor: 'text-indigo-600',
-    size: '32 MB',
-    modified: 'Dec 1, 2024',
-  },
-]
+function formatDate(dateString?: string): string {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  return date.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })
+}
 
 const documentTemplates = [
   { id: 't1', name: 'Blank Document', icon: FileText, description: 'Start from scratch' },
@@ -510,6 +361,73 @@ export default function DocumentsPage() {
   const [showCreateDocModal, setShowCreateDocModal] = useState(false)
   const [showNewFolderModal, setShowNewFolderModal] = useState(false)
   const [showUploadProgress, setShowUploadProgress] = useState(false)
+  const [documents, setDocuments] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadDocuments() {
+      try {
+        const data = await documentsApi.getAll()
+        setDocuments(data || [])
+      } catch (error) {
+        console.error('Error loading documents:', error)
+        setDocuments([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadDocuments()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    )
+  }
+
+  if (documents.length === 0) {
+    return (
+      <div className="space-y-8 animate-fade-in">
+        {/* Page Header */}
+        <div className="flex flex-wrap justify-between items-end gap-4">
+          <div>
+            <h1 className="text-4xl font-black text-gray-900 tracking-tight">Documents</h1>
+            <p className="text-gray-500 mt-1">Manage and organize all your files and documents.</p>
+          </div>
+          <div className="flex gap-3">
+            <Link href="/upload">
+              <Button variant="outline" className="rounded-xl h-11 px-5">
+                <Upload className="h-4 w-4 mr-2" />
+                Upload
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        {/* Empty State */}
+        <div className="flex flex-col items-center justify-center py-24">
+          <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-6">
+            <Inbox className="h-10 w-10 text-gray-400" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Nog geen documenten</h2>
+          <p className="text-gray-500 mb-6">Upload je eerste document</p>
+          <Link href="/upload">
+            <Button className="rounded-xl h-11 px-6 shadow-lg shadow-indigo-200">
+              <Upload className="h-4 w-4 mr-2" />
+              Document uploaden
+            </Button>
+          </Link>
+        </div>
+
+        {/* Modals */}
+        <CreateDocumentModal isOpen={showCreateDocModal} onClose={() => setShowCreateDocModal(false)} />
+        <NewFolderModal isOpen={showNewFolderModal} onClose={() => setShowNewFolderModal(false)} />
+        <UploadProgressOverlay isOpen={showUploadProgress} onClose={() => setShowUploadProgress(false)} />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -612,32 +530,7 @@ export default function DocumentsPage() {
         </div>
       </div>
 
-      {/* Pinned Section */}
-      <section>
-        <div className="flex items-center gap-2 mb-4">
-          <Pin className="h-5 w-5 text-gray-400" />
-          <h2 className="text-lg font-bold text-gray-900">Pinned</h2>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {pinnedDocuments.map((doc) => {
-            const Icon = doc.icon
-            return (
-              <div
-                key={doc.id}
-                className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer group"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center', doc.iconBg)}>
-                    <Icon className={cn('h-5 w-5', doc.iconColor)} />
-                  </div>
-                  <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                </div>
-                <p className="font-bold text-gray-900 text-sm truncate">{doc.name}</p>
-              </div>
-            )
-          })}
-        </div>
-      </section>
+      {/* Pinned Section - skipped when no pinned documents */}
 
       {/* Recent Section */}
       <section>
@@ -656,8 +549,8 @@ export default function DocumentsPage() {
           </div>
         </div>
         <div className="flex gap-4 overflow-x-auto pb-2 -mx-2 px-2">
-          {recentDocuments.map((doc) => {
-            const Icon = doc.icon
+          {documents.slice(0, 5).map((doc) => {
+            const { icon: Icon, iconBg, iconColor } = getDocTypeIcon(doc.type)
             return (
               <div
                 key={doc.id}
@@ -665,17 +558,13 @@ export default function DocumentsPage() {
               >
                 {/* Thumbnail */}
                 <div className="h-28 bg-gray-100 flex items-center justify-center overflow-hidden">
-                  {doc.thumbnail ? (
-                    <img src={doc.thumbnail} alt={doc.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', doc.iconBg)}>
-                      <Icon className={cn('h-6 w-6', doc.iconColor)} />
-                    </div>
-                  )}
+                  <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', iconBg)}>
+                    <Icon className={cn('h-6 w-6', iconColor)} />
+                  </div>
                 </div>
                 <div className="p-3">
                   <p className="font-bold text-gray-900 text-sm truncate">{doc.name}</p>
-                  <p className="text-xs text-gray-400 mt-1">{doc.modified}</p>
+                  <p className="text-xs text-gray-400 mt-1">{formatDate(doc.created_at)}</p>
                 </div>
               </div>
             )
@@ -683,53 +572,33 @@ export default function DocumentsPage() {
         </div>
       </section>
 
-      {/* Files & Folders Section */}
+      {/* All Documents Section */}
       <section>
-        <h2 className="text-lg font-bold text-gray-900 mb-4">Files & Folders</h2>
-
-        {/* Folders */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          {folders.map((folder) => (
-            <div
-              key={folder.id}
-              className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer group"
-            >
-              <div className="flex items-center gap-4">
-                <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', folder.color)}>
-                  <Folder className="h-6 w-6 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-900 truncate">{folder.name}</p>
-                  <p className="text-sm text-gray-400">{folder.itemCount} items</p>
-                </div>
-                <button className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 transition-all">
-                  <MoreHorizontal className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+        <h2 className="text-lg font-bold text-gray-900 mb-4">All Documents</h2>
 
         {/* Files Grid */}
         {viewMode === 'grid' ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {files.map((file) => {
-              const Icon = file.icon
+            {documents.map((doc) => {
+              const { icon: Icon, iconBg, iconColor } = getDocTypeIcon(doc.type)
               return (
                 <div
-                  key={file.id}
+                  key={doc.id}
                   className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer group"
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', file.iconBg)}>
-                      <Icon className={cn('h-6 w-6', file.iconColor)} />
+                    <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', iconBg)}>
+                      <Icon className={cn('h-6 w-6', iconColor)} />
                     </div>
                     <button className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 transition-all">
                       <MoreHorizontal className="h-5 w-5" />
                     </button>
                   </div>
-                  <p className="font-bold text-gray-900 text-sm truncate mb-1">{file.name}</p>
-                  <p className="text-xs text-gray-400">{file.size} • {file.modified}</p>
+                  <p className="font-bold text-gray-900 text-sm truncate mb-1">{doc.name}</p>
+                  <p className="text-xs text-gray-400">
+                    {doc.partner?.company_name ? `${doc.partner.company_name} • ` : ''}
+                    {formatDate(doc.created_at)}
+                  </p>
                 </div>
               )
             })}
@@ -740,26 +609,26 @@ export default function DocumentsPage() {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="text-left py-3 px-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Name</th>
-                  <th className="text-left py-3 px-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Size</th>
-                  <th className="text-left py-3 px-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Modified</th>
+                  <th className="text-left py-3 px-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Partner</th>
+                  <th className="text-left py-3 px-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Date</th>
                   <th className="w-12"></th>
                 </tr>
               </thead>
               <tbody>
-                {files.map((file) => {
-                  const Icon = file.icon
+                {documents.map((doc) => {
+                  const { icon: Icon, iconBg, iconColor } = getDocTypeIcon(doc.type)
                   return (
-                    <tr key={file.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                    <tr key={doc.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
                       <td className="py-4 px-5">
                         <div className="flex items-center gap-3">
-                          <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center', file.iconBg)}>
-                            <Icon className={cn('h-5 w-5', file.iconColor)} />
+                          <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center', iconBg)}>
+                            <Icon className={cn('h-5 w-5', iconColor)} />
                           </div>
-                          <span className="font-medium text-gray-900">{file.name}</span>
+                          <span className="font-medium text-gray-900">{doc.name}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-5 text-sm text-gray-500">{file.size}</td>
-                      <td className="py-4 px-5 text-sm text-gray-500">{file.modified}</td>
+                      <td className="py-4 px-5 text-sm text-gray-500">{doc.partner?.company_name || '-'}</td>
+                      <td className="py-4 px-5 text-sm text-gray-500">{formatDate(doc.created_at)}</td>
                       <td className="py-4 px-5">
                         <button className="text-gray-400 hover:text-gray-600 transition-colors">
                           <MoreHorizontal className="h-5 w-5" />
