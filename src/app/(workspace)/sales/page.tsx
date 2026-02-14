@@ -375,53 +375,114 @@ function CSVUploadModal({ isOpen, onClose, onSuccess }: CSVUploadModalProps) {
   const [importResult, setImportResult] = useState<{ success: number; failed: number } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Parse CSV line respecting quoted values with commas inside
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = []
+    let current = ''
+    let inQuotes = false
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+
+      if (char === '"') {
+        inQuotes = !inQuotes
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim())
+        current = ''
+      } else {
+        current += char
+      }
+    }
+    result.push(current.trim())
+
+    return result
+  }
+
   const parseCSV = (text: string): Partial<SalesLead>[] => {
     const lines = text.split('\n').filter(line => line.trim())
     if (lines.length < 2) return []
 
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g, ''))
+    const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase().replace(/['"]/g, ''))
     const leads: Partial<SalesLead>[] = []
 
-    // Map common header variations
+    // Map common header variations including Apollo export format
     const headerMap: Record<string, keyof SalesLead> = {
+      // Standard formats
       'company_name': 'company_name',
       'company': 'company_name',
       'bedrijf': 'company_name',
       'bedrijfsnaam': 'company_name',
-      'name': 'company_name',
+      // Apollo format
+      'company name': 'company_name',
+      'company name for emails': 'company_name',
+      // Contact name
       'contact_name': 'contact_name',
       'contact': 'contact_name',
       'contactpersoon': 'contact_name',
+      // Email
       'email': 'email',
       'e-mail': 'email',
       'mail': 'email',
+      // Phone - Apollo uses multiple phone fields
       'phone': 'phone',
       'telefoon': 'phone',
       'tel': 'phone',
+      'work direct phone': 'phone',
+      'mobile phone': 'phone',
+      'corporate phone': 'phone',
+      // City
       'city': 'city',
       'stad': 'city',
       'plaats': 'city',
+      'company city': 'city',
+      // Address
       'address': 'address',
       'adres': 'address',
+      'company address': 'address',
+      // Website
       'website': 'website',
       'url': 'website',
       'site': 'website',
+      // Notes/Industry
       'notes': 'notes',
       'notities': 'notes',
       'opmerkingen': 'notes',
+      'industry': 'notes',
     }
 
+    // For Apollo: we need to combine First Name + Last Name for contact
+    const firstNameIndex = headers.indexOf('first name')
+    const lastNameIndex = headers.indexOf('last name')
+
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim().replace(/['"]/g, ''))
+      const values = parseCSVLine(lines[i])
+      if (values.length < 2) continue
+
       const lead: Partial<SalesLead> = {
-        source: 'CSV Import',
+        source: 'Apollo',
         status: 'cold',
+      }
+
+      // Handle Apollo First Name + Last Name
+      if (firstNameIndex !== -1 && lastNameIndex !== -1) {
+        const firstName = values[firstNameIndex]?.trim() || ''
+        const lastName = values[lastNameIndex]?.trim() || ''
+        if (firstName || lastName) {
+          lead.contact_name = `${firstName} ${lastName}`.trim()
+        }
       }
 
       headers.forEach((header, index) => {
         const mappedKey = headerMap[header]
         if (mappedKey && values[index]) {
-          (lead as Record<string, string>)[mappedKey] = values[index]
+          const value = values[index].trim()
+          // Don't overwrite if already set (e.g., contact_name from first+last)
+          if (mappedKey === 'contact_name' && lead.contact_name) return
+          // For phone, prefer non-empty values
+          if (mappedKey === 'phone' && lead.phone) return
+          if (value) {
+            (lead as Record<string, string>)[mappedKey] = value
+          }
         }
       })
 
