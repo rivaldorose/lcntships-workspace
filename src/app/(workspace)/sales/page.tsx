@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Plus,
   MoreHorizontal,
@@ -18,7 +18,12 @@ import {
   List,
   Map,
   Loader2,
-  Inbox
+  Inbox,
+  X,
+  Upload,
+  FileSpreadsheet,
+  Check,
+  AlertCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -31,6 +36,8 @@ const sourceColorMap: Record<string, string> = {
   'Cold Email': 'bg-gray-100 text-gray-700',
   'LinkedIn': 'bg-blue-100 text-blue-700',
   'Website': 'bg-emerald-100 text-emerald-700',
+  'CSV Import': 'bg-orange-100 text-orange-700',
+  'Manual': 'bg-slate-100 text-slate-700',
 }
 
 const getSourceColor = (source?: string) => {
@@ -111,24 +118,574 @@ function LeadCard({ lead }: LeadCardProps) {
   )
 }
 
+// Add Lead Modal Component
+interface AddLeadModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onSuccess: () => void
+}
+
+function AddLeadModal({ isOpen, onClose, onSuccess }: AddLeadModalProps) {
+  const [loading, setLoading] = useState(false)
+  const [formData, setFormData] = useState<{
+    company_name: string
+    contact_name: string
+    email: string
+    phone: string
+    city: string
+    address: string
+    website: string
+    source: string
+    status: 'cold' | 'warm' | 'hot' | 'negotiation' | 'closed' | 'lost'
+    notes: string
+  }>({
+    company_name: '',
+    contact_name: '',
+    email: '',
+    phone: '',
+    city: '',
+    address: '',
+    website: '',
+    source: 'Manual',
+    status: 'cold',
+    notes: '',
+  })
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formData.company_name.trim()) return
+
+    setLoading(true)
+    try {
+      await salesLeadsApi.create(formData)
+      onSuccess()
+      onClose()
+      setFormData({
+        company_name: '',
+        contact_name: '',
+        email: '',
+        phone: '',
+        city: '',
+        address: '',
+        website: '',
+        source: 'Manual',
+        status: 'cold',
+        notes: '',
+      })
+    } catch (error) {
+      console.error('Error creating lead:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-auto m-4">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <h2 className="text-xl font-bold text-gray-900">Nieuwe Lead Toevoegen</h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <X className="h-5 w-5 text-gray-500" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Bedrijfsnaam *
+            </label>
+            <input
+              type="text"
+              value={formData.company_name}
+              onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="Bijv. Studio Amsterdam"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Contactpersoon
+              </label>
+              <input
+                type="text"
+                value={formData.contact_name}
+                onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="Jan Jansen"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Stad
+              </label>
+              <input
+                type="text"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="Amsterdam"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="info@studio.nl"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Telefoon
+              </label>
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="+31 6 12345678"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Website
+            </label>
+            <input
+              type="url"
+              value={formData.website}
+              onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="https://www.studio.nl"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Bron
+              </label>
+              <select
+                value={formData.source}
+                onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                <option value="Manual">Handmatig</option>
+                <option value="Apollo">Apollo</option>
+                <option value="LinkedIn">LinkedIn</option>
+                <option value="Referral">Referral</option>
+                <option value="Cold Email">Cold Email</option>
+                <option value="Website">Website</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <select
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'cold' | 'warm' | 'hot' | 'negotiation' | 'closed' })}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                <option value="cold">Cold</option>
+                <option value="warm">Warm</option>
+                <option value="hot">Hot</option>
+                <option value="negotiation">Negotiation</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Notities
+            </label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+              rows={3}
+              placeholder="Extra informatie over deze lead..."
+            />
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="flex-1"
+            >
+              Annuleren
+            </Button>
+            <Button
+              type="submit"
+              disabled={loading || !formData.company_name.trim()}
+              className="flex-1"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Opslaan...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Lead Toevoegen
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// CSV Upload Modal Component
+interface CSVUploadModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onSuccess: () => void
+}
+
+function CSVUploadModal({ isOpen, onClose, onSuccess }: CSVUploadModalProps) {
+  const [loading, setLoading] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
+  const [file, setFile] = useState<File | null>(null)
+  const [preview, setPreview] = useState<Partial<SalesLead>[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [importResult, setImportResult] = useState<{ success: number; failed: number } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const parseCSV = (text: string): Partial<SalesLead>[] => {
+    const lines = text.split('\n').filter(line => line.trim())
+    if (lines.length < 2) return []
+
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g, ''))
+    const leads: Partial<SalesLead>[] = []
+
+    // Map common header variations
+    const headerMap: Record<string, keyof SalesLead> = {
+      'company_name': 'company_name',
+      'company': 'company_name',
+      'bedrijf': 'company_name',
+      'bedrijfsnaam': 'company_name',
+      'name': 'company_name',
+      'contact_name': 'contact_name',
+      'contact': 'contact_name',
+      'contactpersoon': 'contact_name',
+      'email': 'email',
+      'e-mail': 'email',
+      'mail': 'email',
+      'phone': 'phone',
+      'telefoon': 'phone',
+      'tel': 'phone',
+      'city': 'city',
+      'stad': 'city',
+      'plaats': 'city',
+      'address': 'address',
+      'adres': 'address',
+      'website': 'website',
+      'url': 'website',
+      'site': 'website',
+      'notes': 'notes',
+      'notities': 'notes',
+      'opmerkingen': 'notes',
+    }
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim().replace(/['"]/g, ''))
+      const lead: Partial<SalesLead> = {
+        source: 'CSV Import',
+        status: 'cold',
+      }
+
+      headers.forEach((header, index) => {
+        const mappedKey = headerMap[header]
+        if (mappedKey && values[index]) {
+          (lead as Record<string, string>)[mappedKey] = values[index]
+        }
+      })
+
+      if (lead.company_name) {
+        leads.push(lead)
+      }
+    }
+
+    return leads
+  }
+
+  const handleFile = (selectedFile: File) => {
+    setError(null)
+    setImportResult(null)
+
+    if (!selectedFile.name.endsWith('.csv')) {
+      setError('Alleen CSV bestanden zijn toegestaan')
+      return
+    }
+
+    setFile(selectedFile)
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const text = e.target?.result as string
+      const parsed = parseCSV(text)
+      if (parsed.length === 0) {
+        setError('Geen geldige leads gevonden in het bestand. Zorg dat er een "company_name" of "bedrijf" kolom is.')
+      } else {
+        setPreview(parsed)
+      }
+    }
+    reader.readAsText(selectedFile)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragActive(false)
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0])
+    }
+  }
+
+  const handleImport = async () => {
+    if (preview.length === 0) return
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const results = await salesLeadsApi.createMany(preview)
+      setImportResult({ success: results.length, failed: preview.length - results.length })
+      onSuccess()
+
+      // Clear after success
+      setTimeout(() => {
+        onClose()
+        setFile(null)
+        setPreview([])
+        setImportResult(null)
+      }, 2000)
+    } catch (error) {
+      console.error('Error importing leads:', error)
+      setError('Er ging iets mis bij het importeren. Probeer het opnieuw.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleClose = () => {
+    setFile(null)
+    setPreview([])
+    setError(null)
+    setImportResult(null)
+    onClose()
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-auto m-4">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-orange-50">
+              <FileSpreadsheet className="h-5 w-5 text-orange-600" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900">CSV Importeren</h2>
+          </div>
+          <button
+            onClick={handleClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <X className="h-5 w-5 text-gray-500" />
+          </button>
+        </div>
+
+        <div className="p-6">
+          {importResult ? (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+                <Check className="h-8 w-8 text-emerald-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Import Voltooid!</h3>
+              <p className="text-gray-500">
+                {importResult.success} leads succesvol geïmporteerd
+                {importResult.failed > 0 && `, ${importResult.failed} mislukt`}
+              </p>
+            </div>
+          ) : !file ? (
+            <>
+              <div
+                className={cn(
+                  'border-2 border-dashed rounded-2xl p-8 text-center transition-colors',
+                  dragActive ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'
+                )}
+                onDragOver={(e) => { e.preventDefault(); setDragActive(true) }}
+                onDragLeave={() => setDragActive(false)}
+                onDrop={handleDrop}
+              >
+                <Upload className="h-10 w-10 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600 mb-2">
+                  Sleep je CSV bestand hierheen of{' '}
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-indigo-600 font-medium hover:underline"
+                  >
+                    blader
+                  </button>
+                </p>
+                <p className="text-sm text-gray-400">
+                  CSV met kolommen: bedrijf, contact, email, telefoon, stad, etc.
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+                />
+              </div>
+
+              <div className="mt-6 p-4 bg-gray-50 rounded-xl">
+                <h4 className="font-medium text-gray-900 mb-2">Ondersteunde kolommen:</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
+                  <div>• company_name / bedrijf / bedrijfsnaam</div>
+                  <div>• contact_name / contact / contactpersoon</div>
+                  <div>• email / e-mail / mail</div>
+                  <div>• phone / telefoon / tel</div>
+                  <div>• city / stad / plaats</div>
+                  <div>• website / url / site</div>
+                  <div>• address / adres</div>
+                  <div>• notes / notities / opmerkingen</div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {error ? (
+                <div className="flex items-center gap-3 p-4 bg-red-50 rounded-xl text-red-700 mb-4">
+                  <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                  <p>{error}</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <FileSpreadsheet className="h-5 w-5 text-gray-400" />
+                      <span className="font-medium text-gray-900">{file.name}</span>
+                    </div>
+                    <Badge className="bg-emerald-100 text-emerald-700">
+                      {preview.length} leads gevonden
+                    </Badge>
+                  </div>
+
+                  <div className="border border-gray-200 rounded-xl overflow-hidden mb-4">
+                    <div className="max-h-64 overflow-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 sticky top-0">
+                          <tr>
+                            <th className="text-left p-3 font-medium text-gray-600">Bedrijf</th>
+                            <th className="text-left p-3 font-medium text-gray-600">Contact</th>
+                            <th className="text-left p-3 font-medium text-gray-600">Email</th>
+                            <th className="text-left p-3 font-medium text-gray-600">Stad</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {preview.slice(0, 10).map((lead, i) => (
+                            <tr key={i} className="hover:bg-gray-50">
+                              <td className="p-3 font-medium text-gray-900">{lead.company_name}</td>
+                              <td className="p-3 text-gray-600">{lead.contact_name || '-'}</td>
+                              <td className="p-3 text-gray-600">{lead.email || '-'}</td>
+                              <td className="p-3 text-gray-600">{lead.city || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {preview.length > 10 && (
+                      <div className="p-3 bg-gray-50 text-center text-sm text-gray-500">
+                        ... en {preview.length - 10} meer
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => { setFile(null); setPreview([]); setError(null) }}
+                  className="flex-1"
+                >
+                  Ander bestand
+                </Button>
+                <Button
+                  onClick={handleImport}
+                  disabled={loading || preview.length === 0}
+                  className="flex-1"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Importeren...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      {preview.length} Leads Importeren
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SalesPage() {
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
   const [activeView, setActiveView] = useState<'pipeline' | 'list' | 'map'>('pipeline')
   const [leads, setLeads] = useState<SalesLead[]>([])
   const [loading, setLoading] = useState(true)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [showCSVModal, setShowCSVModal] = useState(false)
+
+  const loadLeads = async () => {
+    try {
+      const data = await salesLeadsApi.getAll()
+      setLeads(data || [])
+    } catch (error) {
+      console.error('Error loading leads:', error)
+      setLeads([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    async function loadLeads() {
-      try {
-        const data = await salesLeadsApi.getAll()
-        setLeads(data || [])
-      } catch (error) {
-        console.error('Error loading leads:', error)
-        setLeads([])
-      } finally {
-        setLoading(false)
-      }
-    }
     loadLeads()
   }, [])
 
@@ -151,6 +708,17 @@ export default function SalesPage() {
     return leads.filter(l => l.status === status)
   }
 
+  // Calculate source distribution
+  const sourceDistribution = leads.reduce((acc, lead) => {
+    const source = lead.source || 'Unknown'
+    acc[source] = (acc[source] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+
+  const sortedSources = Object.entries(sourceDistribution)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 4)
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -161,17 +729,36 @@ export default function SalesPage() {
 
   if (leads.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 text-center">
-        <div className="p-4 rounded-full bg-gray-100 mb-4">
-          <Inbox className="h-10 w-10 text-gray-400" />
+      <>
+        <div className="flex flex-col items-center justify-center h-96 text-center">
+          <div className="p-4 rounded-full bg-gray-100 mb-4">
+            <Inbox className="h-10 w-10 text-gray-400" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Nog geen leads</h2>
+          <p className="text-gray-500 mb-6">Voeg je eerste sales lead toe of importeer een CSV bestand</p>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={() => setShowCSVModal(true)}>
+              <Upload className="h-4 w-4 mr-2" />
+              CSV Importeren
+            </Button>
+            <Button onClick={() => setShowAddModal(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Lead Toevoegen
+            </Button>
+          </div>
         </div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Nog geen leads</h2>
-        <p className="text-gray-500 mb-6">Voeg je eerste sales lead toe</p>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Lead
-        </Button>
-      </div>
+
+        <AddLeadModal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          onSuccess={loadLeads}
+        />
+        <CSVUploadModal
+          isOpen={showCSVModal}
+          onClose={() => setShowCSVModal(false)}
+          onSuccess={loadLeads}
+        />
+      </>
     )
   }
 
@@ -311,7 +898,12 @@ export default function SalesPage() {
             </button>
           </div>
 
-          <Button>
+          <Button variant="outline" onClick={() => setShowCSVModal(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            CSV Import
+          </Button>
+
+          <Button onClick={() => setShowAddModal(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Lead
           </Button>
@@ -345,7 +937,10 @@ export default function SalesPage() {
                 ))}
 
                 {/* Add Card Button */}
-                <button className="w-full p-3 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500 transition-colors flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="w-full p-3 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500 transition-colors flex items-center justify-center gap-2"
+                >
                   <Plus className="h-4 w-4" />
                   <span className="text-sm">Add lead</span>
                 </button>
@@ -396,42 +991,20 @@ export default function SalesPage() {
             </div>
           </div>
           <div className="space-y-3">
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-600">Apollo</span>
-                <span className="font-medium">42%</span>
-              </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-purple-500 rounded-full" style={{ width: '42%' }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-600">Referrals</span>
-                <span className="font-medium">28%</span>
-              </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 rounded-full" style={{ width: '28%' }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-600">Cold Email</span>
-                <span className="font-medium">18%</span>
-              </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-gray-400 rounded-full" style={{ width: '18%' }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-600">Website</span>
-                <span className="font-medium">12%</span>
-              </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 rounded-full" style={{ width: '12%' }} />
-              </div>
-            </div>
+            {sortedSources.map(([source, count]) => {
+              const percentage = totalLeads > 0 ? Math.round((count / totalLeads) * 100) : 0
+              return (
+                <div key={source}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600">{source}</span>
+                    <span className="font-medium">{percentage}%</span>
+                  </div>
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${percentage}%` }} />
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
 
@@ -449,15 +1022,21 @@ export default function SalesPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
               <span className="text-sm text-gray-600">Cold → Warm</span>
-              <span className="text-sm font-semibold text-emerald-600">45%</span>
+              <span className="text-sm font-semibold text-emerald-600">
+                {coldLeads.length > 0 ? Math.round((warmLeads.length / (coldLeads.length + warmLeads.length)) * 100) : 0}%
+              </span>
             </div>
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
               <span className="text-sm text-gray-600">Warm → Hot</span>
-              <span className="text-sm font-semibold text-emerald-600">62%</span>
+              <span className="text-sm font-semibold text-emerald-600">
+                {warmLeads.length > 0 ? Math.round((hotLeads.length / (warmLeads.length + hotLeads.length)) * 100) : 0}%
+              </span>
             </div>
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
               <span className="text-sm text-gray-600">Hot → Closed</span>
-              <span className="text-sm font-semibold text-emerald-600">78%</span>
+              <span className="text-sm font-semibold text-emerald-600">
+                {hotLeads.length > 0 ? Math.round((closedLeads.length / (hotLeads.length + closedLeads.length)) * 100) : 0}%
+              </span>
             </div>
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
               <span className="text-sm text-gray-600">Overall</span>
@@ -511,6 +1090,18 @@ export default function SalesPage() {
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <AddLeadModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSuccess={loadLeads}
+      />
+      <CSVUploadModal
+        isOpen={showCSVModal}
+        onClose={() => setShowCSVModal(false)}
+        onSuccess={loadLeads}
+      />
     </div>
   )
 }

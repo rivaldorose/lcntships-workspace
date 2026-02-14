@@ -110,11 +110,12 @@ export interface SalesLead {
   email?: string
   phone?: string
   city?: string
-  studio_type?: string
-  status: string
+  address?: string
+  website?: string
+  status: 'cold' | 'warm' | 'hot' | 'negotiation' | 'closed' | 'lost'
   source?: string
   notes?: string
-  last_contacted_at?: string
+  assigned_to?: string
   created_at?: string
   updated_at?: string
 }
@@ -551,6 +552,16 @@ export const salesLeadsApi = {
       .eq('id', id)
 
     if (error) throw error
+  },
+
+  async createMany(leads: Partial<SalesLead>[]) {
+    const { data, error } = await supabase
+      .from('sales_leads')
+      .insert(leads)
+      .select()
+
+    if (error) throw error
+    return data as SalesLead[]
   },
 }
 
