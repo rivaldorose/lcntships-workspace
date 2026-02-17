@@ -33,7 +33,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { salesLeadsApi, type SalesLead } from '@/lib/supabase'
+import { salesLeadsApi, leadContactsApi, type SalesLead, type LeadContact } from '@/lib/supabase'
+import { UserPlus, Users } from 'lucide-react'
 
 const sourceColorMap: Record<string, string> = {
   'Apollo': 'bg-purple-100 text-purple-700',
@@ -81,15 +82,27 @@ const formatDate = (dateString?: string) => {
   })
 }
 
+// Contact form row
+interface ContactFormData {
+  name: string
+  role: string
+  email: string
+  phone: string
+  is_primary: boolean
+}
+
+const emptyContact: ContactFormData = { name: '', role: '', email: '', phone: '', is_primary: false }
+
 // Add Lead Modal Component
 interface AddLeadModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
   editLead?: SalesLead | null
+  existingContacts?: LeadContact[]
 }
 
-function AddLeadModal({ isOpen, onClose, onSuccess, editLead }: AddLeadModalProps) {
+function AddLeadModal({ isOpen, onClose, onSuccess, editLead, existingContacts }: AddLeadModalProps) {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<{
     company_name: string
@@ -115,6 +128,8 @@ function AddLeadModal({ isOpen, onClose, onSuccess, editLead }: AddLeadModalProp
     notes: '',
   })
 
+  const [contacts, setContacts] = useState<ContactFormData[]>([{ ...emptyContact, is_primary: true }])
+
   useEffect(() => {
     if (editLead) {
       setFormData({
@@ -129,6 +144,24 @@ function AddLeadModal({ isOpen, onClose, onSuccess, editLead }: AddLeadModalProp
         status: editLead.status || 'cold',
         notes: editLead.notes || '',
       })
+      // Load existing contacts
+      if (existingContacts && existingContacts.length > 0) {
+        setContacts(existingContacts.map(c => ({
+          name: c.name || '',
+          role: c.role || '',
+          email: c.email || '',
+          phone: c.phone || '',
+          is_primary: c.is_primary || false,
+        })))
+      } else {
+        setContacts([{
+          name: editLead.contact_name || '',
+          role: '',
+          email: editLead.email || '',
+          phone: editLead.phone || '',
+          is_primary: true,
+        }])
+      }
     } else {
       setFormData({
         company_name: '',
@@ -142,8 +175,33 @@ function AddLeadModal({ isOpen, onClose, onSuccess, editLead }: AddLeadModalProp
         status: 'cold',
         notes: '',
       })
+      setContacts([{ ...emptyContact, is_primary: true }])
     }
-  }, [editLead, isOpen])
+  }, [editLead, existingContacts, isOpen])
+
+  const addContact = () => {
+    setContacts([...contacts, { ...emptyContact }])
+  }
+
+  const removeContact = (index: number) => {
+    if (contacts.length <= 1) return
+    const updated = contacts.filter((_, i) => i !== index)
+    // Ensure at least one is primary
+    if (!updated.some(c => c.is_primary) && updated.length > 0) {
+      updated[0].is_primary = true
+    }
+    setContacts(updated)
+  }
+
+  const updateContact = (index: number, field: keyof ContactFormData, value: string | boolean) => {
+    const updated = [...contacts]
+    if (field === 'is_primary' && value === true) {
+      // Only one primary at a time
+      updated.forEach(c => c.is_primary = false)
+    }
+    updated[index] = { ...updated[index], [field]: value }
+    setContacts(updated)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -151,11 +209,46 @@ function AddLeadModal({ isOpen, onClose, onSuccess, editLead }: AddLeadModalProp
 
     setLoading(true)
     try {
-      if (editLead) {
-        await salesLeadsApi.update(editLead.id, formData)
-      } else {
-        await salesLeadsApi.create(formData)
+      // Set the primary contact as the main contact_name/email/phone on the lead
+      const primaryContact = contacts.find(c => c.is_primary) || contacts[0]
+      const leadData = {
+        ...formData,
+        contact_name: primaryContact?.name || formData.contact_name,
+        email: primaryContact?.email || formData.email,
+        phone: primaryContact?.phone || formData.phone,
       }
+
+      let leadId: string
+
+      if (editLead) {
+        await salesLeadsApi.update(editLead.id, leadData)
+        leadId = editLead.id
+        // Delete existing contacts and re-create
+        if (existingContacts) {
+          for (const c of existingContacts) {
+            await leadContactsApi.delete(c.id)
+          }
+        }
+      } else {
+        const newLead = await salesLeadsApi.create(leadData)
+        leadId = newLead.id
+      }
+
+      // Save contacts
+      const validContacts = contacts.filter(c => c.name.trim())
+      if (validContacts.length > 0) {
+        await leadContactsApi.createMany(
+          validContacts.map(c => ({
+            lead_id: leadId,
+            name: c.name,
+            role: c.role || undefined,
+            email: c.email || undefined,
+            phone: c.phone || undefined,
+            is_primary: c.is_primary,
+          }))
+        )
+      }
+
       onSuccess()
       onClose()
     } catch (error) {
@@ -170,7 +263,7 @@ function AddLeadModal({ isOpen, onClose, onSuccess, editLead }: AddLeadModalProp
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-auto m-4">
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-auto m-4">
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <h2 className="text-xl font-bold text-gray-900">
             {editLead ? 'Lead Bewerken' : 'Nieuwe Lead Toevoegen'}
@@ -184,6 +277,7 @@ function AddLeadModal({ isOpen, onClose, onSuccess, editLead }: AddLeadModalProp
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Company Info */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Bedrijfsnaam *
@@ -201,18 +295,6 @@ function AddLeadModal({ isOpen, onClose, onSuccess, editLead }: AddLeadModalProp
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Contactpersoon
-              </label>
-              <input
-                type="text"
-                value={formData.contact_name}
-                onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="Jan Jansen"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Stad
               </label>
               <input
@@ -223,46 +305,18 @@ function AddLeadModal({ isOpen, onClose, onSuccess, editLead }: AddLeadModalProp
                 placeholder="Amsterdam"
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
+                Website
               </label>
               <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                type="url"
+                value={formData.website}
+                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="info@studio.nl"
+                placeholder="https://www.studio.nl"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Telefoon
-              </label>
-              <input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="+31 6 12345678"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Website
-            </label>
-            <input
-              type="url"
-              value={formData.website}
-              onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="https://www.studio.nl"
-            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -299,6 +353,89 @@ function AddLeadModal({ isOpen, onClose, onSuccess, editLead }: AddLeadModalProp
                 <option value="closed">Closed</option>
                 <option value="lost">Lost</option>
               </select>
+            </div>
+          </div>
+
+          {/* Contacts Section */}
+          <div className="border-t border-gray-100 pt-4 mt-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-gray-500" />
+                <label className="text-sm font-semibold text-gray-900">
+                  Contactpersonen
+                </label>
+              </div>
+              <button
+                type="button"
+                onClick={addContact}
+                className="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
+              >
+                <UserPlus className="h-4 w-4" />
+                Contact toevoegen
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {contacts.map((contact, index) => (
+                <div key={index} className="relative bg-gray-50 rounded-xl p-4 space-y-3">
+                  {/* Primary badge & remove button */}
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => updateContact(index, 'is_primary', true)}
+                      className={cn(
+                        'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full transition-colors',
+                        contact.is_primary
+                          ? 'bg-indigo-100 text-indigo-700'
+                          : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                      )}
+                    >
+                      {contact.is_primary && <Check className="h-3 w-3" />}
+                      {contact.is_primary ? 'Primair' : 'Maak primair'}
+                    </button>
+                    {contacts.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeContact(index)}
+                        className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      value={contact.name}
+                      onChange={(e) => updateContact(index, 'name', e.target.value)}
+                      className="px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                      placeholder="Naam *"
+                    />
+                    <input
+                      type="text"
+                      value={contact.role}
+                      onChange={(e) => updateContact(index, 'role', e.target.value)}
+                      className="px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                      placeholder="Functie (bijv. Manager)"
+                    />
+                    <input
+                      type="email"
+                      value={contact.email}
+                      onChange={(e) => updateContact(index, 'email', e.target.value)}
+                      className="px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                      placeholder="Email"
+                    />
+                    <input
+                      type="tel"
+                      value={contact.phone}
+                      onChange={(e) => updateContact(index, 'phone', e.target.value)}
+                      className="px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                      placeholder="Telefoon"
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -688,13 +825,14 @@ function CSVUploadModal({ isOpen, onClose, onSuccess }: CSVUploadModalProps) {
 // Lead Detail View Component
 interface LeadDetailProps {
   lead: SalesLead
+  contacts: LeadContact[]
   onBack: () => void
   onEdit: () => void
   onDelete: () => void
   onStatusChange: (status: SalesLead['status']) => void
 }
 
-function LeadDetail({ lead, onBack, onEdit, onDelete, onStatusChange }: LeadDetailProps) {
+function LeadDetail({ lead, contacts, onBack, onEdit, onDelete, onStatusChange }: LeadDetailProps) {
   const statusColors = getStatusColor(lead.status)
 
   return (
@@ -754,66 +892,112 @@ function LeadDetail({ lead, onBack, onEdit, onDelete, onStatusChange }: LeadDeta
             )}
           </div>
 
-          {/* Contact Info */}
+          {/* Contacts */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h2 className="font-semibold text-gray-900 mb-4">Contactgegevens</h2>
-            <div className="grid grid-cols-2 gap-4">
-              {lead.contact_name && (
-                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
-                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                    <span className="text-indigo-600 font-semibold">
-                      {lead.contact_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                    </span>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-500">Contactpersoon</div>
-                    <div className="font-medium text-gray-900">{lead.contact_name}</div>
-                  </div>
-                </div>
-              )}
-
-              {lead.email && (
-                <a
-                  href={`mailto:${lead.email}`}
-                  className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-                >
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                    <Mail className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-500">Email</div>
-                    <div className="font-medium text-gray-900">{lead.email}</div>
-                  </div>
-                </a>
-              )}
-
-              {lead.phone && (
-                <a
-                  href={`tel:${lead.phone}`}
-                  className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-                >
-                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                    <Phone className="h-5 w-5 text-emerald-600" />
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-500">Telefoon</div>
-                    <div className="font-medium text-gray-900">{lead.phone}</div>
-                  </div>
-                </a>
-              )}
-
-              {lead.address && (
-                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
-                  <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
-                    <Building2 className="h-5 w-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-500">Adres</div>
-                    <div className="font-medium text-gray-900">{lead.address}</div>
-                  </div>
-                </div>
-              )}
+            <div className="flex items-center gap-2 mb-4">
+              <Users className="h-5 w-5 text-gray-400" />
+              <h2 className="font-semibold text-gray-900">
+                Contactpersonen ({contacts.length > 0 ? contacts.length : (lead.contact_name ? 1 : 0)})
+              </h2>
             </div>
+
+            {contacts.length > 0 ? (
+              <div className="space-y-3">
+                {contacts.map((contact) => (
+                  <div key={contact.id} className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
+                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-indigo-600 font-semibold text-sm">
+                        {contact.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-gray-900">{contact.name}</span>
+                        {contact.is_primary && (
+                          <Badge className="bg-indigo-100 text-indigo-700 text-xs">Primair</Badge>
+                        )}
+                        {contact.role && (
+                          <span className="text-sm text-gray-500">{contact.role}</span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-4 text-sm">
+                        {contact.email && (
+                          <a href={`mailto:${contact.email}`} className="flex items-center gap-1.5 text-gray-600 hover:text-indigo-600 transition-colors">
+                            <Mail className="h-3.5 w-3.5" />
+                            {contact.email}
+                          </a>
+                        )}
+                        {contact.phone && (
+                          <a href={`tel:${contact.phone}`} className="flex items-center gap-1.5 text-gray-600 hover:text-indigo-600 transition-colors">
+                            <Phone className="h-3.5 w-3.5" />
+                            {contact.phone}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* Fallback to legacy single contact */
+              <div className="grid grid-cols-2 gap-4">
+                {lead.contact_name && (
+                  <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
+                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                      <span className="text-indigo-600 font-semibold">
+                        {lead.contact_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-500">Contactpersoon</div>
+                      <div className="font-medium text-gray-900">{lead.contact_name}</div>
+                    </div>
+                  </div>
+                )}
+
+                {lead.email && (
+                  <a
+                    href={`mailto:${lead.email}`}
+                    className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <Mail className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-500">Email</div>
+                      <div className="font-medium text-gray-900">{lead.email}</div>
+                    </div>
+                  </a>
+                )}
+
+                {lead.phone && (
+                  <a
+                    href={`tel:${lead.phone}`}
+                    className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                      <Phone className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-500">Telefoon</div>
+                      <div className="font-medium text-gray-900">{lead.phone}</div>
+                    </div>
+                  </a>
+                )}
+              </div>
+            )}
+
+            {lead.address && (
+              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl mt-3">
+                <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                  <Building2 className="h-5 w-5 text-orange-600" />
+                </div>
+                <div>
+                  <div className="text-sm text-gray-500">Adres</div>
+                  <div className="font-medium text-gray-900">{lead.address}</div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Notes */}
@@ -893,6 +1077,7 @@ export default function SalesPage() {
   const [showCSVModal, setShowCSVModal] = useState(false)
   const [selectedLead, setSelectedLead] = useState<SalesLead | null>(null)
   const [editLead, setEditLead] = useState<SalesLead | null>(null)
+  const [leadContacts, setLeadContacts] = useState<LeadContact[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [showStatusDropdown, setShowStatusDropdown] = useState(false)
@@ -912,6 +1097,21 @@ export default function SalesPage() {
   useEffect(() => {
     loadLeads()
   }, [])
+
+  const loadContacts = async (leadId: string) => {
+    try {
+      const data = await leadContactsApi.getByLeadId(leadId)
+      setLeadContacts(data || [])
+    } catch (error) {
+      console.error('Error loading contacts:', error)
+      setLeadContacts([])
+    }
+  }
+
+  const selectLead = async (lead: SalesLead) => {
+    setSelectedLead(lead)
+    loadContacts(lead.id)
+  }
 
   const handleStatusChange = async (leadId: string, newStatus: SalesLead['status']) => {
     try {
@@ -972,7 +1172,8 @@ export default function SalesPage() {
       <>
         <LeadDetail
           lead={selectedLead}
-          onBack={() => setSelectedLead(null)}
+          contacts={leadContacts}
+          onBack={() => { setSelectedLead(null); setLeadContacts([]) }}
           onEdit={() => {
             setEditLead(selectedLead)
             setShowAddModal(true)
@@ -989,11 +1190,13 @@ export default function SalesPage() {
           onSuccess={() => {
             loadLeads()
             if (editLead) {
-              // Refresh selected lead
+              // Refresh selected lead and contacts
               salesLeadsApi.getById(editLead.id).then(setSelectedLead)
+              loadContacts(editLead.id)
             }
           }}
           editLead={editLead}
+          existingContacts={leadContacts}
         />
       </>
     )
@@ -1192,7 +1395,7 @@ export default function SalesPage() {
               return (
                 <tr
                   key={lead.id}
-                  onClick={() => setSelectedLead(lead)}
+                  onClick={() => selectLead(lead)}
                   className="hover:bg-gray-50 cursor-pointer transition-colors"
                 >
                   <td className="p-4">

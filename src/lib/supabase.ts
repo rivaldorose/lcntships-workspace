@@ -120,6 +120,18 @@ export interface SalesLead {
   updated_at?: string
 }
 
+export interface LeadContact {
+  id: string
+  lead_id: string
+  name: string
+  role?: string
+  email?: string
+  phone?: string
+  is_primary?: boolean
+  created_at?: string
+  updated_at?: string
+}
+
 export interface MarketingPost {
   id: string
   title: string
@@ -562,6 +574,63 @@ export const salesLeadsApi = {
 
     if (error) throw error
     return data as SalesLead[]
+  },
+}
+
+// Lead Contacts API functions
+export const leadContactsApi = {
+  async getByLeadId(leadId: string) {
+    const { data, error } = await supabase
+      .from('lead_contacts')
+      .select('*')
+      .eq('lead_id', leadId)
+      .order('is_primary', { ascending: false })
+      .order('created_at', { ascending: true })
+
+    if (error) throw error
+    return data as LeadContact[]
+  },
+
+  async create(contact: Partial<LeadContact>) {
+    const { data, error } = await supabase
+      .from('lead_contacts')
+      .insert(contact)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data as LeadContact
+  },
+
+  async update(id: string, contact: Partial<LeadContact>) {
+    const { data, error } = await supabase
+      .from('lead_contacts')
+      .update(contact)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data as LeadContact
+  },
+
+  async delete(id: string) {
+    const { error } = await supabase
+      .from('lead_contacts')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  },
+
+  async createMany(contacts: Partial<LeadContact>[]) {
+    const { data, error } = await supabase
+      .from('lead_contacts')
+      .insert(contacts)
+      .select()
+
+    if (error) throw error
+    return data as LeadContact[]
   },
 }
 
